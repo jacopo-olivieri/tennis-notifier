@@ -4,7 +4,7 @@
 
 **Watch**: A member's standing request to hear about matching slots. It is either recurring (weekday + time window, e.g. "Tue 18:00–20:00") or one-off (a specific date + time window). Any court matches.
 
-**Member**: One of the group of friends (roughly 5–20) who manages their own watches and chooses how they receive alerts. Membership is invite-only; members sign in with their email address.
+**Member**: One of the group of friends (roughly 5–20) who manages their own watches. Membership is invite-only. A member is identified by their Telegram account.
 
 **Release drop**: Slots becoming bookable for the first time as the booking window advances.
 
@@ -12,4 +12,4 @@
 
 **Alert**: A message telling a member that a slot matching one of their watches is free, so they can book it themselves. The system never books. A member is alerted every time a matching slot goes from booked to free, at any hour.
 
-**Channel**: How a member receives alerts (e.g. Telegram, email, WhatsApp).
+**Channel**: How a member receives alerts. In v1 the only channel is a Telegram DM from the bot.

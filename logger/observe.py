@@ -1,7 +1,7 @@
 """Temporary logger for the "Observe a week of releases and cancellations" ticket.
 
-Every run probes the edge of the booking window (cheap). At most once an hour it
-also scans the full availability grid of every court and logs slot changes.
+Every run probes the edge of the booking window (cheap), then scans the full
+availability grid of every court and logs slot changes.
 Stdlib only, so it runs anywhere without installs.
 """
 
@@ -27,9 +27,9 @@ COURTS = {
     3: {"page": "/courses/detail/177/lincoln-s-inn-fields-tennis-court-3/", "event_id": 200},
 }
 PROBE_HOURS = range(7, 22)
-PROBE_OFFSETS = (33, 34, 35, 36)  # days ahead of today (London) to probe
+PROBE_OFFSETS = (34, 35)  # days ahead of today (London): the current edge and the next one
 SCAN_WEEKS = 6  # current week + 5 postbacks covers the 34-day window
-SCAN_EVERY = timedelta(minutes=55)
+SCAN_EVERY = timedelta(minutes=4)  # i.e. every run; short-lived cancellations need frequent scans
 STOP_AFTER = date(2026, 10, 12)  # the observation week ends; scheduled runs become no-ops
 
 DATA = Path(__file__).resolve().parent.parent / "data"
