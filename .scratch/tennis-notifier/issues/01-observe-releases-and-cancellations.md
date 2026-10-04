@@ -2,7 +2,7 @@
 
 Type: task
 Mode: AFK
-Status: open
+Status: claimed
 Blocked by:
 Map: [Lincoln's Inn Fields court notifier](../map.md)
 
@@ -15,3 +15,7 @@ Run a temporary logger for about 7 days. It should take a snapshot of all 3 cour
 The answer should record: the release time (or that it's continuous), the number of cancellations per week with their timing, and where the raw log lives.
 
 See [Camden Active booking platform](../../../docs/research/camden_active_platform.md) for the scraping mechanics.
+
+## Comments
+
+- 2026-10-04: Logger built at `logger/observe.py`, running from `.github/workflows/observe.yml` every 15 min until 2026-10-12. Each run checks book.aspx for 07:00–21:00 on court 1 for days today+33..+36 (`data/probes.jsonl`). At most hourly it scans the full grid of all 3 courts and logs every slot change to `data/events.jsonl`. First local run: last bookable day 2026-11-07 (today+34), 1158 slots, 482 free, probe ~1 min, scan ~3 min. Note: today+34 already had some booked hours at first sight, so a day's release has to be judged hour by hour.
