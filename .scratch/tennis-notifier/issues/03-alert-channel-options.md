@@ -13,3 +13,7 @@ What does it take, in setup, cost and per-member onboarding, to send alerts by W
 - **WhatsApp:** Meta Cloud API (business verification, phone number, template rules, current 2026 per-message pricing for utility templates) versus unofficial free options such as CallMeBot (onboarding steps, reliability, terms).
 - **Telegram:** a bot DMing each member versus posting to one group, and how a member links their Telegram account to their website account.
 - **Email:** free transactional providers (e.g. Resend, Brevo, Mailgun, SES) with their free-tier limits and deliverability. The same provider would ideally send the magic-link sign-in emails too.
+
+## Comments
+
+Research findings: docs/research/alert_channel_options.md on branch research/alert-channel-options
