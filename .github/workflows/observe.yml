@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Queued runs must start from the latest data, not the commit they were triggered at.
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -33,5 +36,5 @@ jobs:
           git add data
           git diff --cached --quiet && exit 0
           git commit -q -m "observe: $(date -u +%FT%TZ)"
-          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 5; done
+          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; git rebase --abort 2>/dev/null; sleep 5; done
           exit 1
