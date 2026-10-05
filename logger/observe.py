@@ -33,7 +33,7 @@ COURTS = {
 PROBE_HOURS = range(7, 22)
 PROBE_OFFSETS = (34, 35)  # days ahead of today (London): the current edge and the next one
 SCAN_WEEKS = 6  # current week + 5 postbacks covers the 34-day window
-SCAN_EVERY = timedelta(minutes=4)  # i.e. every run; short-lived cancellations need frequent scans
+SCAN_EVERY = timedelta(minutes=1)  # i.e. every run (runs never overlap); short-lived cancellations need frequent scans
 STOP_AFTER = date(2026, 10, 12)  # the observation week ends; scheduled runs become no-ops
 
 DATA = Path(__file__).resolve().parent.parent / "data"
