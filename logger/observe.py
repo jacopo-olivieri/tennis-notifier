@@ -1,7 +1,9 @@
 """Temporary logger for the "Observe a week of releases and cancellations" ticket.
 
 Every run probes the edge of the booking window (cheap), then scans the full
-availability grid of every court and logs slot changes.
+availability grid of every court and logs slot changes. A run that starts
+between 23:50 and 00:15 London time first watches the newly releasing day on
+all courts every 15s until 00:15, to time the release and the race after it.
 Stdlib only, so it runs anywhere without installs.
 """
 
@@ -14,7 +16,9 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
+from datetime import time as dt_time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -37,6 +41,7 @@ STATE = DATA / "state.json"
 PROBES = DATA / "probes.jsonl"
 EVENTS = DATA / "events.jsonl"
 SCANS = DATA / "scans.jsonl"
+BURSTS = DATA / "release_bursts.jsonl"
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -92,6 +97,40 @@ def probe(now):
     append(PROBES, record)
     open_days = [d for d, hours in result.items() if "open" in hours.values()]
     print(f"probe: days with an open hour: {open_days}")
+
+
+# --- release burst: watch the newly releasing day second by second around midnight ---
+
+BURST_START, BURST_END = dt_time(23, 50), dt_time(0, 15)
+BURST_HOURS = range(7, 18)
+BURST_EVERY = 15  # seconds between rounds
+
+
+def in_burst_window(moment):
+    t = moment.timetz().replace(tzinfo=None)
+    return t >= BURST_START or t < BURST_END
+
+
+def probe_court_day(court, day):
+    opener = session(follow_redirects=False)
+    fetch(opener, BASE + court["page"])
+    return {h: probe_slot(opener, court["event_id"], day, h) for h in BURST_HOURS}
+
+
+def release_burst(now):
+    # The day that becomes bookable at the next (or just-passed) midnight.
+    target = now.date() + timedelta(days=35 if now.hour == 23 else 34)
+    print(f"burst: watching {target} until {BURST_END}")
+    with ThreadPoolExecutor(len(COURTS)) as pool:
+        while in_burst_window(datetime.now(LONDON)):
+            started = time.monotonic()
+            at = datetime.now(LONDON).isoformat(timespec="seconds")
+            results = dict(zip(COURTS, pool.map(lambda c: probe_court_day(c, target), COURTS.values())))
+            for number, hours in results.items():
+                append(BURSTS, {"at": at, "court": number, "day": target.isoformat(),
+                                "open": [h for h, v in hours.items() if v == "open"],
+                                "other": {h: v for h, v in hours.items() if v not in ("open", "refused")}})
+            time.sleep(max(0, BURST_EVERY - (time.monotonic() - started)))
 
 
 # --- scan: full grid for every court ---
@@ -182,6 +221,14 @@ def main():
         return
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
     failed = False
+    if in_burst_window(now):
+        try:
+            release_burst(now)
+        except Exception as e:
+            failed = True
+            append(BURSTS, {"at": now.isoformat(timespec="seconds"), "error": repr(e)})
+            print(f"burst failed: {e!r}", file=sys.stderr)
+        now = datetime.now(LONDON)
     try:
         probe(now)
     except Exception as e:  # keep going so the scan still runs
