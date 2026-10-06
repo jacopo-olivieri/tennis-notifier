@@ -27,3 +27,13 @@ See [Camden Active booking platform](../../../docs/research/camden_active_platfo
   - **No cancellations seen yet** (no booked → free). Only 6 scans so far, so this is weak evidence.
   - **Fix:** added a release-burst mode, so a run starting 23:50–00:15 London watches the releasing day on all courts every ~20s (`data/release_bursts.jsonl`). A reliable trigger is still needed: an external cron calling `workflow_dispatch`.
 - 2026-10-05: Reliable trigger in place. A cron-job.org job (owner's account, Europe/London, every 5 min) POSTs `workflow_dispatch` for `observe.yml`, using a fine-grained PAT scoped to this repo with Actions read/write. The PAT is stored only in cron-job.org and expires 2027-09-30. The first dispatch at 10:00:43Z started a run immediately. Disable the cron-job.org job after 2026-10-12 (runs are no-ops after that anyway).
+- 2026-10-06 (interim, first full day on the reliable trigger):
+  - **Release time confirmed: midnight London.** In the burst, 2026-11-09 was refused on all courts in the round starting 23:59:32 and open on all courts (08:00–15:00) in the round starting 23:59:54, whose probes ran until about 00:00:15.
+  - **No race last night.** Every 11-09 slot was still free at 00:15. The first booking came at 06:45 (court 1, 08:00). This changes the 10-05 reading: the 11-08 slots "booked by 00:01" may have been pre-blocked (e.g. coaching), not raced. Several more midnights are needed to tell, and weekend target days may differ.
+  - **Cancellations are common, contrary to the non-refundable prior.** There were 11 booked → free events on 10-05, including a Saturday 14:00–15:00 pair. One slot (court 1, 10-06 14:00) went free, booked and free again within hours. **Hypothesis:** some of these are unpaid checkout holds expiring, not true cancellations. Worth checking whether freed slots cluster right after a free → booked.
+  - **Failures, by cause:**
+    - (a) **GitHub runner starvation.** On 10-05 19:30–21:15, 5 runs got no runner for 15 min and were cancelled ("All jobs were cancelled" emails), leaving gaps of up to 35 min. This is GitHub-side, and one more reason not to host the product on GitHub Actions.
+    - (b) **Camden/Cloudflare HTTP 520.** One transient scan error, at 16:45.
+    - (c) **cron-job.org.** One dispatch failure, at 23:35 (likely a slow GitHub API).
+    - (d) **Queue cancellations.** 18 "cancelled" runs were queue displacement (only one pending run is kept), which is expected.
+  - **Change made:** runs now fail, and email, only after 3 consecutive errored runs; errors are still logged in the data files.
