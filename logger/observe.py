@@ -34,6 +34,7 @@ PROBE_HOURS = range(7, 22)
 PROBE_OFFSETS = (34, 35)  # days ahead of today (London): the current edge and the next one
 SCAN_WEEKS = 6  # current week + 5 postbacks covers the 34-day window
 SCAN_EVERY = timedelta(minutes=1)  # i.e. every run (runs never overlap); short-lived cancellations need frequent scans
+MAX_FAILED_RUNS = 3  # consecutive runs with an error before the run is marked failed
 STOP_AFTER = date(2026, 10, 12)  # the observation week ends; scheduled runs become no-ops
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -243,8 +244,11 @@ def main():
             failed = True
             append(SCANS, {"at": now.isoformat(timespec="seconds"), "error": repr(e)})
             print(f"scan failed: {e!r}", file=sys.stderr)
+    # One-off site errors (e.g. Cloudflare 520) are logged in the data files above;
+    # only fail the run, and so email the owner, once errors persist across runs.
+    state["failed_runs"] = state.get("failed_runs", 0) + 1 if failed else 0
     STATE.write_text(json.dumps(state, sort_keys=True, indent=0))
-    sys.exit(1 if failed else 0)
+    sys.exit(1 if state["failed_runs"] >= MAX_FAILED_RUNS else 0)
 
 
 if __name__ == "__main__":
