@@ -37,3 +37,8 @@ See [Camden Active booking platform](../../../docs/research/camden_active_platfo
     - (c) **cron-job.org.** One dispatch failure, at 23:35 (likely a slow GitHub API).
     - (d) **Queue cancellations.** 18 "cancelled" runs were queue displacement (only one pending run is kept), which is expected.
   - **Change made:** runs now fail, and email, only after 3 consecutive errored runs; errors are still logged in the data files.
+- 2026-10-07 (interim):
+  - **Midnight release confirmed again.** 2026-11-10 opened on all courts between 23:59:55 and 00:00:15. No race: the first booking came at ~00:05 (court 1, 08:00) and the next at 08:20. The weekend check is still pending: Sat 11-14 opens at midnight on 10-09/10.
+  - **Booked → free runs at 8–11 per day** (10-05: 11, 10-06: 10, 10-07: 8 by 16:00).
+  - **Most frees look like expiring checkout holds.** Where the preceding free → booked was seen, the gap to booked → free clusters at ~45 min (17 of 25 in 44–47 min), with a smaller cluster at 5–10 min. This means a held slot often reappears ~45 min after it was taken, which is a design lever for [When to alert and how often to check](05-alert-triggers-and-poll-cadence.md).
+  - **Reliability (10-06 07:30 to 10-07 16:00):** 380 success, 5 runner-starved cancellations, 4 transient 520s (absorbed by the 3-strikes rule), and 1 failure. That failure was a GitHub push 500 during a GitHub partial outage, made worse by a retry-loop bug (`rebase --abort` under `bash -e` ended the loop early). Fixed in `observe.yml`, and one run's data was lost.
