@@ -22,11 +22,13 @@ A build-ready spec for a free, always-on notifier. It tells a small invite-only 
 
 ## Decisions so far
 
+- [Observe a week of releases and cancellations](issues/01-observe-releases-and-cancellations.md): Days open at midnight London. Weekend mornings are raced within minutes; weekdays aren't. About 1–11 booked → free per day, mostly checkout holds expiring ~45 min after booking. GitHub's own scheduler is unusable, but an external cron dispatch works.
+- [Alert channel options: WhatsApp, Telegram, email](issues/03-alert-channel-options.md): WhatsApp costs per message, email needs a domain, Telegram is free and handles bursts.
 - [Choose the alert channels](issues/07-choose-alert-channels.md): Telegram bot DMs only, with Telegram login for the website; no email or WhatsApp.
+- [Free hosting options for poller, website and storage](issues/02-free-hosting-options.md): Fly, Vercel and Netlify are out. The front-runner is GitHub Actions (triggered by an external cron, since GitHub's own scheduler is throttled) plus Supabase and a static site; the alternative is Supabase alone; the fallbacks are Cloudflare Workers, then an Oracle VM.
 
 ## Not yet specified
 
-- **How often to check.** Depends on when new days release, how often cancellations happen, the ~7s request time and the host's cron limits. A burst around release time might be enough, with slow polling the rest of the day.
 - **How slot state is stored and compared.** Detecting booked → free changes needs the previous snapshot. Where it lives depends on the host.
 - **What an alert says.** Probably a deep link to book.aspx for the slot, plus the court and time. Maybe grouped when one release produces many matches.
 - **Knowing when the scraper breaks.** The HTML or the postback flow can change silently, so the owner needs a "scraper unhealthy" signal.

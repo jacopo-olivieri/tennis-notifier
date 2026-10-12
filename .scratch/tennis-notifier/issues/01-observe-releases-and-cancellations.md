@@ -2,7 +2,7 @@
 
 Type: task
 Mode: AFK
-Status: claimed
+Status: resolved
 Blocked by:
 Map: [Lincoln's Inn Fields court notifier](../map.md)
 
@@ -48,3 +48,15 @@ See [Camden Active booking platform](../../../docs/research/camden_active_platfo
   - **Booked → free counts by day:** 11, 10, 9, 7, 3, 0, 2 (10-05 to 10-11). Of the 37 frees with a prior booking seen, 24 came 44–47 min after the booking, consistent with expiring checkout holds. Freed slots survive a median of ~6h before being re-booked (IQR 1.5h–28h); only 1 of 37 was re-taken within 10 min.
   - **Data artifact.** One scan at 10-09 20:20 returned a partial grid, so 112 slots "vanished" and reappeared at 20:25. A production scraper must treat missing slots as unknown, not as a change.
   - **Reliability (10-07 16:30 to 10-11 22:10):** 985 success, 13 runner-starved, 1 failure; 32 transient scan errors (29 × 520), 14 of them on 10-11.
+
+## Answer
+
+Closed on 2026-10-12, after the owner judged the data sufficient. The logger ran from 2026-10-04 to 2026-10-12 09:40, on GitHub Actions triggered by cron-job.org every 5 min, with a full 3-court scan each run.
+
+- **Release time: midnight London, in one step.** The day at today+34 opens on all courts between 23:59:55 and 00:00:15. Seen on every night of the reliable-trigger period.
+- **Weekend days are raced, weekdays are not.** Sat 2026-11-14 lost most of its morning slots within ~1–2.5 min of midnight. Weekday days usually see their first booking hours later; the exception is court 1 at 08:00, sometimes taken at ~00:05. Some hours are pre-blocked before release (likely coaching or bookings made by the venue), so they never appear as free.
+- **Booked → free: 42 in the week,** falling over the week: 11, 10, 9, 7, 3, 0, 2, 0 per day (10-05 to 10-12). Most are expiring checkout holds, not real cancellations: of the 37 with the preceding booking seen, 24 freed 44–47 min after being taken. Freed slots then stay free for a median ~6 h (IQR 1.5–28 h); only 1 in 37 was re-taken within 10 min.
+- **Scraper lessons for production:** treat slots missing from a scan as unknown, not as a change (one partial grid on 10-09 20:20 made 112 slots "vanish"). Expect transient Camden/Cloudflare 520s (about 1–3% of scans) and absorb them, e.g. with a 3-strikes rule. A full scan takes about 3 min (~1,110 slots).
+- **Hosting lessons** (feed [Choose the hosting architecture](06-hosting-architecture.md)): GitHub's `schedule` trigger ran only about every 3 h. A `workflow_dispatch` from cron-job.org was reliable apart from ~1% of runs that couldn't get a GitHub runner. There were no Cloudflare challenges from GitHub runners.
+- **Raw logs** (on `main`, written by `logger/observe.py`): `data/events.jsonl` (every slot change), `data/scans.jsonl` (per-scan summary), `data/probes.jsonl` (booking-window probes), `data/release_bursts.jsonl` (20-second polling around midnight), `data/state.json` (the last snapshot).
+- **Teardown (done 2026-10-12):** `observe.yml` disabled on GitHub, cron-job.org job deleted, and its fine-grained PAT revoked.
