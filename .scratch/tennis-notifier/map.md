@@ -12,7 +12,7 @@ A build-ready spec for a free, always-on notifier. It tells a small invite-only 
 - Platform facts: [Camden Active booking platform](../../docs/research/camden_active_platform.md). Public HTML, no API, 3 courts, ~7s per request, bookable up to today + 34 days, non-refundable bookings.
 - Settled in the charting session (2026-10-04):
   - **Members:** 5–20 friends, invite-only. Sign-in is decided under [Choose the alert channels](issues/07-choose-alert-channels.md).
-  - **Watches:** recurring weekday + time window, or one-off date + window. Any court, 1-hour slots.
+  - **Watches:** recurring weekday + time window, or one-off date + window. Any court, 1-hour slots. (Refined to chosen hours in [Prototype the watch-management website](issues/08-watch-management-website.md).)
   - **Events:** both release drops and cancellations matter.
   - **Alerts:** notify only, never book. Re-alert every time a slot goes booked → free, at any hour, with no quiet hours.
   - **Website:** a simple, minimal one for managing watches.
@@ -29,6 +29,7 @@ A build-ready spec for a free, always-on notifier. It tells a small invite-only 
 - [When to alert and how often to check](issues/05-alert-triggers-and-poll-cadence.md): Alert on release drops, cancellations and new watches, grouped per member per check, with no repeat for the same slot within 30 min. A 20:00 heads-up goes out before each matching release. Full scans run every 5 min by day and every 15 min overnight, with a 10-second burst at midnight.
 - [Test whether cloud hosts can reach Camden Active](issues/04-cloud-reachability-test.md): GitHub runners reach Camden with no Cloudflare challenge (~1,400 scans, only transient 520s). Supabase Edge Functions were left untested and get tested only if the hosting choice leans that way.
 - [Choose the hosting architecture](issues/06-hosting-architecture.md): The Python poller runs on GitHub Actions, dispatched by cron-job.org, with a double-dispatched midnight `release` job. Supabase Postgres holds all state and the shared SQL matching and formatting functions. The website is static on GitHub Pages with one Edge Function API. Telegram is outbound only, and signing in also links the account.
+- [Prototype the watch-management website](issues/08-watch-management-website.md): A week grid. Watches are chosen hours: weekly (weekday + hour) or single dates (including dates not open yet), each hour showing the next 5 weeks' availability. Changes go out on an explicit save, with one new-watch alert per save. Past dates are deleted quietly, and there's no pause. The owner invites with single-use links that expire after 7 days.
 
 ## Not yet specified
 

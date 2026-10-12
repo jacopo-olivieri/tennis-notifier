@@ -9,3 +9,7 @@ Map: [Lincoln's Inn Fields court notifier](../map.md)
 ## Question
 
 What do the Telegram messages say? Cover the grouped alert (slots grouped by date and time, each with a booking link), the new-watch alert, and the 20:00 heads-up (which says slots *should* open). Which deep link goes with each slot: does a `book.aspx` URL land the member on the right slot, or only on the court and week? Draft sample messages from real data in `data/` to react to.
+
+## Comments
+
+- 2026-10-12: From [Prototype the watch-management website](08-watch-management-website.md): the new-watch alert goes out once per save and lists only slots matched by the hours added in that save. Single-date watches can be for days not yet open, so the heads-up also covers them. The site's wording uses "Weekly" and "Single dates", "N free" and "Booked".
