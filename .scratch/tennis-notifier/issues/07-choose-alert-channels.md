@@ -19,3 +19,5 @@ Which channels does v1 offer (Telegram, email, WhatsApp), and how does a member 
 **Telegram only.** Alerts go out as Telegram bot DMs, which are free and handle bursts (about 30 messages a second). A member links their account by tapping a one-time `t.me/<bot>?start=<token>` link. Website sign-in also uses Telegram (the Telegram Login Widget) rather than an email magic link, so v1 needs no email sending and no custom domain.
 
 WhatsApp is out: the official API charges per message and needs real setup, and the free unofficial route is personal-use only with no guarantees. Email is out: members are expected to use Telegram, and dropping it avoids the domain cost.
+
+- 2026-10-12: Amended by [Choose the hosting architecture](06-hosting-architecture.md). There's no `t.me/<bot>?start=<token>` link. The Login Widget with `request_access=write` both signs the member in and lets the bot DM them, so the bot needs no inbound webhook.

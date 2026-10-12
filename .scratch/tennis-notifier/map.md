@@ -27,12 +27,12 @@ A build-ready spec for a free, always-on notifier. It tells a small invite-only 
 - [Choose the alert channels](issues/07-choose-alert-channels.md): Telegram bot DMs only, with Telegram login for the website; no email or WhatsApp.
 - [Free hosting options for poller, website and storage](issues/02-free-hosting-options.md): Fly, Vercel and Netlify are out. The front-runner is GitHub Actions (triggered by an external cron, since GitHub's own scheduler is throttled) plus Supabase and a static site; the alternative is Supabase alone; the fallbacks are Cloudflare Workers, then an Oracle VM.
 - [When to alert and how often to check](issues/05-alert-triggers-and-poll-cadence.md): Alert on release drops, cancellations and new watches, grouped per member per check, with no repeat for the same slot within 30 min. A 20:00 heads-up goes out before each matching release. Full scans run every 5 min by day and every 15 min overnight, with a 10-second burst at midnight.
+- [Test whether cloud hosts can reach Camden Active](issues/04-cloud-reachability-test.md): GitHub runners reach Camden with no Cloudflare challenge (~1,400 scans, only transient 520s). Supabase Edge Functions were left untested and get tested only if the hosting choice leans that way.
+- [Choose the hosting architecture](issues/06-hosting-architecture.md): The Python poller runs on GitHub Actions, dispatched by cron-job.org, with a double-dispatched midnight `release` job. Supabase Postgres holds all state and the shared SQL matching and formatting functions. The website is static on GitHub Pages with one Edge Function API. Telegram is outbound only, and signing in also links the account.
 
 ## Not yet specified
 
-- **How slot state is stored and compared.** Detecting booked → free changes needs the previous snapshot. Where it lives depends on the host.
-- **What an alert says.** The message wording and the book.aspx deep link per slot, plus the heads-up wording. Grouping is already decided (one message per member per check).
-- **Knowing when the scraper breaks.** The HTML or the postback flow can change silently, so the owner needs a "scraper unhealthy" signal.
+- **Deploying and operating v1.** Setup order for Supabase, the bot, cron-job.org and Pages. Probably part of the spec rather than a decision, but revisit once the data model is settled.
 
 ## Out of scope
 
