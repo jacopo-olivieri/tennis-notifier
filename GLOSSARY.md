@@ -8,8 +8,10 @@
 
 **Release drop**: Slots becoming bookable for the first time as the booking window advances.
 
-**Cancellation**: A previously booked slot becoming free again.
+**Cancellation**: A previously booked slot becoming free again, whatever the cause. Most are checkout holds expiring rather than members cancelling, and a slot can flip back and forth while it's held.
 
-**Alert**: A message telling a member that a slot matching one of their watches is free, so they can book it themselves. The system never books. A member is alerted every time a matching slot goes from booked to free, at any hour.
+**Alert**: A message telling a member that a slot matching one of their watches is free, so they can book it themselves. The system never books. A member is alerted on every release drop and cancellation that matches a watch, at any hour, but not twice for the same slot within a short window. When a member adds a watch, they get one alert listing the matching slots that are already free. One alert lists every matching slot found by the same check.
+
+**Heads-up**: An evening message telling a member that slots matching their watch become bookable at the next release drop, so they can be ready at midnight. It is sent in addition to the alert at release.
 
 **Channel**: How a member receives alerts. In v1 the only channel is a Telegram DM from the bot.
