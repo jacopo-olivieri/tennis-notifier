@@ -8,7 +8,7 @@ Findings from unauthenticated requests on 2026-10-04, about 17:00 BST, from a re
   - Court 1: https://camdenactive.camden.gov.uk/courses/detail/171/lincoln-s-inn-fields-tennis-court-1/ (fdCourseEventId=192)
   - Court 2: https://camdenactive.camden.gov.uk/courses/detail/176/lincoln-s-inn-fields-tennis-court-2/ (fdCourseEventId=199)
   - Court 3: https://camdenactive.camden.gov.uk/courses/detail/177/lincoln-s-inn-fields-tennis-court-3/ (fdCourseEventId=200)
-- Deep link for a free slot: `/courses/book.aspx?fdCourseEventId=192&fdDate=DD/MM/YYYY&fdTime=HH`. Without a session it redirects to login.
+- Free-slot links look like `/courses/book.aspx?fdCourseEventId=192&fdDate=DD/MM/YYYY&fdTime=HH`, but they don't deep-link to the slot. Tested on 2026-10-12: signed out, the link returns a 302 to the court's detail page for the current week, for free, booked and out-of-window slots alike. Signed in (the owner tested on a phone), it also lands on the court page.
 
 ## Reading availability
 - Availability is public. There is no JSON API: the grid is server-rendered HTML showing one Sun–Sat week of hourly rows.

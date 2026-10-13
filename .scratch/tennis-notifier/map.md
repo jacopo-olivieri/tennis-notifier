@@ -30,10 +30,12 @@ A build-ready spec for a free, always-on notifier. It tells a small invite-only 
 - [Test whether cloud hosts can reach Camden Active](issues/04-cloud-reachability-test.md): GitHub runners reach Camden with no Cloudflare challenge (~1,400 scans, only transient 520s). Supabase Edge Functions were left untested and get tested only if the hosting choice leans that way.
 - [Choose the hosting architecture](issues/06-hosting-architecture.md): The Python poller runs on GitHub Actions, dispatched by cron-job.org, with a double-dispatched midnight `release` job. Supabase Postgres holds all state and the shared SQL matching and formatting functions. The website is static on GitHub Pages with one Edge Function API. Telegram is outbound only, and signing in also links the account.
 - [Prototype the watch-management website](issues/08-watch-management-website.md): A week grid. Watches are chosen hours: weekly (weekday + hour) or single dates (including dates not open yet), each hour showing the next 5 weeks' availability. Changes go out on an explicit save, with one new-watch alert per save. Past dates are deleted quietly, and there's no pause. The owner invites with single-use links that expire after 7 days.
+- [Design the Supabase data model and shared matching functions](issues/09-data-model-and-shared-functions.md): Each slot is a row, compared with every scan in one SQL call; a court counts only if it scanned completely. Each chosen hour is one Watch. The booking window (today + 34) is computed in one place, and the midnight job confirms releases. Four functions return ready-to-send messages. Only sent alerts count toward the 30-minute rule, and unsent ones are retried. The midnight claim expires at 00:15, and a daily 03:00 job clears old data.
+- [Draft the alert and heads-up messages](issues/10-alert-and-heads-up-wording.md): Short list: a bold emoji headline, then one line per hour, like `Sun 22 Nov 09:00  C1 C2 C3`. Each court links to its court page, because Camden's slot links only ever open the court page, even when signed in. The heads-up uses the same layout with no links, and there are no buttons or footer.
 
 ## Not yet specified
 
-- **Deploying and operating v1.** Setup order for Supabase, the bot, cron-job.org and Pages. Probably part of the spec rather than a decision, but revisit once the data model is settled.
+- **Deploying and operating v1.** Setup order for Supabase (SQL migration, seeding the owner row, the `pg_cron` housekeeping job), the bot, cron-job.org and Pages. The data model is now settled, so this can probably go straight into the spec once the health ticket closes, rather than becoming a ticket.
 
 ## Out of scope
 

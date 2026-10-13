@@ -2,7 +2,7 @@
 
 **Slot**: One bookable court for one hour at a specific date and start time at Lincoln's Inn Fields.
 
-**Watch**: A member's standing request to hear about matching slots, made of chosen hours. A weekly watch is a weekday and start hour that repeats every week (e.g. Tue 18:00); a single-date watch is a date and start hour (e.g. Sat 31 Oct 10:00), and it may be for a date not yet bookable. Any court matches. A single-date watch disappears once its date has passed.
+**Watch**: A member's standing request to hear about matching slots at one chosen hour. A member usually has many. A weekly watch is a weekday and start hour that repeats every week (e.g. Tue 18:00); a single-date watch is a date and start hour (e.g. Sat 31 Oct 10:00), and it may be for a date not yet bookable. Any court matches. A single-date watch disappears once its date has passed.
 _Avoid_: recurring watch, one-off watch, time window
 
 **Member**: One of the group of friends (roughly 5–20) who manages their own watches. Membership is invite-only. A member is identified by their Telegram account.
