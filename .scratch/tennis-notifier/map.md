@@ -32,10 +32,11 @@ A build-ready spec for a free, always-on notifier. It tells a small invite-only 
 - [Prototype the watch-management website](issues/08-watch-management-website.md): A week grid. Watches are chosen hours: weekly (weekday + hour) or single dates (including dates not open yet), each hour showing the next 5 weeks' availability. Changes go out on an explicit save, with one new-watch alert per save. Past dates are deleted quietly, and there's no pause. The owner invites with single-use links that expire after 7 days.
 - [Design the Supabase data model and shared matching functions](issues/09-data-model-and-shared-functions.md): Each slot is a row, compared with every scan in one SQL call; a court counts only if it scanned completely. Each chosen hour is one Watch. The booking window (today + 34) is computed in one place, and the midnight job confirms releases. Four functions return ready-to-send messages. Only sent alerts count toward the 30-minute rule, and unsent ones are retried. The midnight claim expires at 00:15, and a daily 03:00 job clears old data.
 - [Draft the alert and heads-up messages](issues/10-alert-and-heads-up-wording.md): Short list: a bold emoji headline, then one line per hour, like `Sun 22 Nov 09:00  C1 C2 C3`. Each court links to its court page, because Camden's slot links only ever open the court page, even when signed in. The heads-up uses the same layout with no links, and there are no buttons or footer.
+- [Decide how the owner learns the notifier is broken](issues/11-scraper-health-signal.md): A Healthchecks.io dead-man's switch alerts only the owner, by Telegram and email. A `scan` check is pinged only when all 3 courts parse and no send returns 401 (30-min grace), and a `release` check when the midnight release completes. Members the bot can't reach see a banner on the site instead.
 
 ## Not yet specified
 
-- **Deploying and operating v1.** Setup order for Supabase (SQL migration, seeding the owner row, the `pg_cron` housekeeping job), the bot, cron-job.org and Pages. The data model is now settled, so this can probably go straight into the spec once the health ticket closes, rather than becoming a ticket.
+- **Deploying and operating v1.** Setup order for Supabase (SQL migration, seeding the owner row, the `pg_cron` housekeeping job), the bot, cron-job.org and Pages. Every decision ticket is now closed, so this goes straight into the spec rather than becoming a ticket. Include the Healthchecks.io setup (two checks, Telegram and email integrations) and PAT rotation.
 
 ## Out of scope
 
