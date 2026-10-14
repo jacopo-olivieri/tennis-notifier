@@ -1,6 +1,7 @@
-"""The `scan` job: unless a release holds the night, read all three courts, record them in the snapshot, send the alerts and ping Healthchecks."""
+"""The `scan` job: unless a release holds the night, read all three courts, record them in the snapshot, send the alerts and the 20:00 heads-up, and ping Healthchecks."""
 
 import json
+import os
 import sys
 import time
 
@@ -24,6 +25,7 @@ def main():
     result = rpc("record_scan", courts=courts)
     print("record_scan:", json.dumps({k: v for k, v in result.items() if k != "messages"}))
     outcomes = send_and_report(result["messages"])
+    outcomes += send_heads_up()
     # Pings go after the sends, so a revoked bot token (401) withholds them.
     if should_ping(result, outcomes):
         ping("scan")
@@ -47,6 +49,24 @@ def send_and_report(messages):
             rpc("mark_failed", alert_ids=message["alert_ids"], http_status=status, error=error)
         print(f"message for {len(message['alert_ids'])} slots: {status} {error or ''}".rstrip())
         outcomes.append(status)
+    return outcomes
+
+
+def send_heads_up():
+    """Send this evening's heads-ups if they're due, then mark them done.
+
+    Returns the HTTP status of each send.
+    """
+    run_id = os.environ.get("GITHUB_RUN_ID") or f"local-{os.getpid()}"
+    due = rpc("heads_up_due", run_id=run_id)
+    if due is None:
+        return []
+    outcomes = []
+    for message in due["messages"]:
+        status, error = send_message(message["chat_id"], message["text"])
+        print(f"heads-up: {status} {error or ''}".rstrip())
+        outcomes.append(status)
+    rpc("mark_heads_up_done", day=due["for_date"])
     return outcomes
 
 

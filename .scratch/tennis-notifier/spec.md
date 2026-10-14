@@ -171,7 +171,8 @@ Each producer returns ready-to-send messages `(chat_id, text, alert_ids[])`. The
 |---|---|---|
 | `record_scan(courts jsonb)` | `scan` job | Applies complete courts and logs every court in `scan_log`. Logs status changes. Returns alerts for booked → free slots that are within the window and haven't started, plus retries of unsent alerts whose slot is still free. Also returns whether all 3 courts were complete. |
 | `record_release(day)` | `release` job, once the day is open | Returns release alerts for every free slot on that day that matches a Watch, from the latest snapshot. Sets the release marker's `done_at`. |
-| `heads_up_due()` | `scan` job, every run | At or after 20:00, claims the `heads_up` marker for today and returns Heads-ups for watched hours on today + 35 where at least one court shows free. Returns nothing if the marker is already done or it's before 20:00. |
+| `heads_up_due(run_id)` | `scan` job, every run | At or after 20:00, claims the `heads_up` marker for today and returns `{for_date, messages}`: Heads-ups for watched hours on today + 35 where at least one court shows free. Returns nothing if the marker is already done or it's before 20:00. With no messages, the marker is done at once. |
+| `mark_heads_up_done(day)` | `scan` job | Sets the `heads_up` marker's `done_at` once the Heads-ups' sends are reported. |
 | `save_watches(member, added, removed)` | Edge Function | Applies the batch and returns the single new-watch message for slots free now on the added hours only (empty if there are none). |
 | `mark_sent(alert_ids)` | all callers | Sets `sent_at` and clears `unreachable_since`. |
 | `mark_failed(alert_ids, http_status, error)` | all callers | Increments `failures`. After 3 failures the alert is abandoned. If it's abandoned with a 403, sets `unreachable_since`. The poller classifies nothing. |
@@ -211,7 +212,7 @@ Telegram `sendMessage` with `parse_mode: HTML`, link previews disabled, no inlin
 2. Scan the 3 courts.
 3. `record_scan`.
 4. Send the returned messages and report each outcome.
-5. `heads_up_due()`, then send and report.
+5. `heads_up_due(run_id)`, send, then `mark_heads_up_done`.
 6. Ping the Healthchecks `scan` URL if `should_ping` allows it.
 
 **`release` job:**
