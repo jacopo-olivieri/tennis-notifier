@@ -28,3 +28,5 @@
   - The `run_id` expression is duplicated with `release.py`.
 - **Smoke run** (Camden, Telegram and Healthchecks faked, against a scratch Postgres): the first scan at 20:03 sent one `🌙 Opens at midnight` DM and pinged. The second scan sent nothing.
 - **Still to do:** apply the migration to the live Supabase and push.
+
+**2026-10-14:** The migration was applied in the Supabase SQL editor (`mark_heads_up_done` answers 204 live), then pushed as 3c47964. The first live heads-up goes out with the next scan after the push, as a missed-20:00 catch-up.
