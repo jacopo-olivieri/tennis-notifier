@@ -1,9 +1,10 @@
-"""The `scan` job: read all three courts, record them in the snapshot and send the alerts."""
+"""The `scan` job: read all three courts, record them in the snapshot, send the alerts and ping Healthchecks."""
 
 import json
 import sys
 import time
 
+from notifier.health import ping, should_ping
 from notifier.scraper import COURTS, REQUEST_GAP, scan_court
 from notifier.supabase import rpc
 from notifier.telegram import send_message
@@ -19,13 +20,22 @@ def main():
         courts.append({"court": number, **result})
     result = rpc("record_scan", courts=courts)
     print("record_scan:", json.dumps({k: v for k, v in result.items() if k != "messages"}))
-    send_and_report(result["messages"])
+    outcomes = send_and_report(result["messages"])
+    # Pings go after the sends, so a revoked bot token (401) withholds them.
+    if should_ping(result, outcomes):
+        ping("scan")
+    else:
+        print("ping: withheld")
     if result.get("failed"):
         sys.exit("some courts could not be recorded")
 
 
 def send_and_report(messages):
-    """Send each message, then report the outcome for the alert rows it carries."""
+    """Send each message, then report the outcome for the alert rows it carries.
+
+    Returns the HTTP status of each send.
+    """
+    outcomes = []
     for message in messages:
         status, error = send_message(message["chat_id"], message["text"])
         if status == 200:
@@ -33,6 +43,8 @@ def send_and_report(messages):
         else:
             rpc("mark_failed", alert_ids=message["alert_ids"], http_status=status, error=error)
         print(f"message for {len(message['alert_ids'])} slots: {status} {error or ''}".rstrip())
+        outcomes.append(status)
+    return outcomes
 
 
 if __name__ == "__main__":
