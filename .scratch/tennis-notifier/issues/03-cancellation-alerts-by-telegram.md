@@ -4,14 +4,14 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `record_scan` returns `(chat_id, text, alert_ids[])` messages for booked → free slots matching a Watch (weekly or single-date), within `window_end()` and not yet started; it writes `alert` rows of kind `cancellation`
 - [x] Booked → missing → free counts as a Cancellation; days after `window_end()` never produce one; past slots are never alerted
 - [x] One message per member per check, lines in date-then-hour order, courts ascending, `C<n>` linked to the court detail page; headline `🎾 Court free` for one slot and `🎾 Courts free` for more
 - [x] The poller sends each message with `parse_mode: HTML` and link previews disabled, then calls `mark_sent` or `mark_failed(alert_ids, http_status, error)`
 - [x] SQL tests assert the exact message text and the resulting rows
-- [ ] Live demo (once 01 is done): seed the owner and a watch by hand; a freed slot reaches the owner's Telegram
+- [x] Live demo (once 01 is done): seed the owner and a watch by hand; a freed slot reaches the owner's Telegram
 
 ## Comments
 
@@ -22,3 +22,5 @@
 - `mark_sent`/`mark_failed` return void, so PostgREST answers 204 with no body; `rpc()` now returns None for that.
 - The send path was checked live: a SQL-formatted sample reached the owner (200), and a bad chat id came back as `400 Bad Request: chat not found`.
 - The poller logs no message text or chat ids, because the repo's Actions logs are public.
+
+**2026-10-14:** Live demo done. The migration was applied in the Supabase SQL editor. The owner's `member` row (id 1, `is_owner`) and a weekly Mon 11:00 watch were seeded through the REST API. A real cancellation was faked by setting Court 2, Mon 19 Oct 11:00 (free on Camden) to `booked` in `slot`. The dispatched `scan` ([run 38543703358](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38543703358)) saw it go booked -> free, sent the alert (200) and `mark_sent` stamped the row.
