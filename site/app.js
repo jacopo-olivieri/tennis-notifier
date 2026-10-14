@@ -1,14 +1,44 @@
-// Court Watch: signing in with Telegram. The session token lives in localStorage
-// for its 30 days; everything else comes from the Edge Function.
+// Court Watch: signing in with Telegram, then the member's watches. The session
+// token lives in localStorage for its 30 days; everything else comes from the Edge Function.
 
 const SESSION_KEY = "court-watch-session";
 const UNREACHABLE = "Couldn't reach the server. Try again in a minute.";
-const S = { screen: "loading", state: null, stranger: null, menu: false, busy: false, error: "" };
+const S = {
+  screen: "loading", state: null, stranger: null, menu: false, busy: false, error: "",
+  // Unsaved changes: hours to add and to remove, as {weekday, hour} or {date, hour}.
+  added: [], removed: [], form: { kind: "weekly", weekday: 1, date: "", hour: "" }, note: "",
+};
 
 const BALL = `<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="14" fill="var(--acc)"/><path d="M5 6.5c5 3 6.5 12 0 17M25 6.5c-5 3-6.5 12 0 17" fill="none" stroke="var(--acc-fg)" stroke-width="1.6" stroke-linecap="round"/></svg>`;
 const PLANE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M21.9 4.3 18.6 19.9c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.9 13.4l-4.9-1.5c-1.1-.3-1.1-1.1.2-1.6L20.5 2.9c.9-.3 1.7.2 1.4 1.4z"/></svg>`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const handle = u => u.username ? `@${u.username}` : u.first_name;
+
+// ---------- watches ----------
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const pad = h => String(h).padStart(2, "0");
+const key = w => w.weekday ? `w${w.weekday}-${w.hour}` : `d${w.date}-${w.hour}`;
+const dayLabel = d => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).replace(",", "");
+const label = w => w.weekday ? `Weekly ${WEEKDAYS[w.weekday - 1]} ${pad(w.hour)}:00` : `${dayLabel(w.date)} ${pad(w.hour)}:00`;
+const order = (a, b) => (a.weekday ? 0 : 1) - (b.weekday ? 0 : 1) || (a.weekday ?? 0) - (b.weekday ?? 0)
+  || String(a.date ?? "").localeCompare(String(b.date ?? "")) || a.hour - b.hour;
+const londonToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+
+// The hours some court runs, from the availability the server sent; a sensible span before the first scan.
+function sessionHours() {
+  const hours = [...new Set((S.state.availability ?? []).filter(a => a.status !== "no session").map(a => a.hour))];
+  return hours.length ? hours.sort((a, b) => a - b) : Array.from({ length: 15 }, (_, i) => i + 7);
+}
+
+// The member's watches as they'd be after saving, each flagged if it's a pending addition.
+function shownWatches() {
+  const removed = new Set(S.removed.map(key));
+  return [
+    ...S.state.watches.filter(w => !removed.has(key(w))),
+    ...S.added.map(w => ({ ...w, unsaved: true })),
+  ].sort(order);
+}
 
 // localStorage can be missing or throw (private windows); then the session lasts until the tab closes.
 let memorySession = null;
@@ -59,9 +89,50 @@ function logIn() {
   });
 }
 
+function addWatch() {
+  const f = S.form;
+  if (f.hour === "" || (f.kind === "single" && !f.date)) return;
+  const w = f.kind === "weekly" ? { weekday: Number(f.weekday), hour: Number(f.hour) } : { date: f.date, hour: Number(f.hour) };
+  const k = key(w);
+  if (S.removed.some(r => key(r) === k)) S.removed = S.removed.filter(r => key(r) !== k);
+  else if (!shownWatches().some(x => key(x) === k)) S.added.push(w);
+  S.note = "";
+  render();
+}
+
+function removeWatch(k) {
+  if (S.added.some(w => key(w) === k)) S.added = S.added.filter(w => key(w) !== k);
+  else S.removed.push(S.state.watches.find(w => key(w) === k));
+  S.note = "";
+  render();
+}
+
+async function saveWatches() {
+  S.busy = true;
+  render();
+  try {
+    const res = await api("POST", "/watches", {
+      added: S.added,
+      removed: S.removed.map(({ weekday, date, hour }) => weekday ? { weekday, hour } : { date, hour }),
+    });
+    if (res.status === 401) return logOut();
+    if (res.status !== 200) return show("member", { error: "That didn't save. Try again.", added: S.added, removed: S.removed });
+    show("member", {
+      state: res.body.state, added: [], removed: [],
+      note: {
+        sent: "Saved. What's free now on those hours is in your Telegram.",
+        failed: "Saved, but the bot couldn't message you what's free now.",
+        none: "Saved. Nothing's free on those hours right now.",
+      }[res.body.alert],
+    });
+  } catch {
+    show("member", { error: UNREACHABLE, added: S.added, removed: S.removed });
+  }
+}
+
 function logOut() {
   session.set(null);
-  show("signedout");
+  show("signedout", { added: [], removed: [], note: "" });
 }
 
 function show(screen, extra = {}) {
@@ -84,12 +155,39 @@ function gate() {
     ${S.error ? `<p class="error">${esc(S.error)}</p>` : ""}</div></div>`;
 }
 
+function watchesCard() {
+  const f = S.form;
+  const watches = shownWatches();
+  const changes = S.added.length + S.removed.length;
+  const select = (field, options, value) => `<select data-field="${field}">${options.map(([v, t]) =>
+    `<option value="${v}" ${String(v) === String(value) ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+  return `<div class="card"><h2>Your watches</h2>
+    <p class="sub">You get a Telegram message whenever a court frees up at one of these hours.</p>
+    ${watches.length
+      ? `<ul class="watches">${watches.map(w => `<li${w.unsaved ? ` class="unsaved"` : ""}><span>${esc(label(w))}${w.unsaved ? ` <em>new</em>` : ""}</span>
+          <button class="x" data-act="remove" data-key="${esc(key(w))}" aria-label="Stop watching ${esc(label(w))}">×</button></li>`).join("")}</ul>`
+      : `<p class="empty">No watches yet. Add the hours you want to play.</p>`}
+    <div class="add">
+      ${select("kind", [["weekly", "Every week"], ["single", "One date"]], f.kind)}
+      ${f.kind === "weekly"
+        ? select("weekday", WEEKDAYS.map((d, i) => [i + 1, d]), f.weekday)
+        : `<input type="date" data-field="date" min="${londonToday()}" value="${esc(f.date)}">`}
+      ${select("hour", [["", "Hour"], ...sessionHours().map(h => [h, `${pad(h)}:00`])], f.hour)}
+      <button class="btn" data-act="add">Add</button>
+    </div>
+    ${changes ? `<div class="bar"><span>${changes} unsaved change${changes === 1 ? "" : "s"}</span>
+      <button class="btn" data-act="discard" ${S.busy ? "disabled" : ""}>Discard</button>
+      <button class="btn primary" data-act="save" ${S.busy ? "disabled" : ""}>${S.busy ? "Saving…" : "Save"}</button></div>` : ""}
+    ${S.note ? `<p class="note">${esc(S.note)}</p>` : ""}
+    ${S.error ? `<p class="error">${esc(S.error)}</p>` : ""}</div>`;
+}
+
 function member() {
   const m = S.state.member;
   return `<div class="wrap"><header><div class="brand">${BALL}<div><b>Court Watch</b><span>Lincoln's Inn Fields · 3 courts</span></div></div>
     <div class="menu"><button class="avatar" data-act="menu" aria-label="Account" aria-expanded="${S.menu}">${esc(m.first_name.slice(0, 1).toUpperCase())}</button>
     ${S.menu ? `<div class="menu-pop"><div>${esc(m.first_name)}${m.username ? ` · @${esc(m.username)}` : ""}<br>Alerts go to your Telegram DMs.</div><button data-act="logout">Log out</button></div>` : ""}</div></header>
-    <div class="card"><h2>You're in, ${esc(m.first_name)}</h2><p class="sub">Picking the hours you want to play is coming next.</p></div>
+    ${watchesCard()}
     <footer>Booking stays on Camden Active.</footer></div>`;
 }
 
@@ -103,7 +201,19 @@ document.addEventListener("click", e => {
   if (act === "login") return logIn();
   if (act === "logout") return logOut();
   if (act === "menu") { S.menu = !S.menu; return render(); }
+  if (act === "add") return addWatch();
+  if (act === "remove") return removeWatch(e.target.closest("[data-key]").dataset.key);
+  if (act === "discard") { Object.assign(S, { added: [], removed: [], note: "", error: "" }); return render(); }
+  if (act === "save") return saveWatches();
   if (S.menu && !e.target.closest(".menu-pop")) { S.menu = false; render(); }
+});
+
+// The add form's fields keep their values across renders.
+document.addEventListener("change", e => {
+  const field = e.target.dataset?.field;
+  if (!field) return;
+  S.form[field] = e.target.value;
+  if (field === "kind") render();
 });
 
 load();

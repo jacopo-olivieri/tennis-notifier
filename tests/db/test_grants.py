@@ -57,3 +57,22 @@ def test_every_table_denies_anonymous_access(db):
 
     assert tables and all(rls for _, rls in tables), tables
     assert policies == 0
+
+
+def test_other_roles_cannot_save_watches(db):
+    db.conn.execute("create role stranger")
+    db.conn.execute("set local role stranger")
+
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        db.call("save_watches", 1, [{"weekday": 2, "hour": 11}], [])
+
+
+def test_other_roles_cannot_read_availability(db):
+    """A view runs as its owner unless told otherwise, which would get round RLS."""
+    db.call("record_scan", all_courts())
+    db.conn.execute("create role stranger")
+    db.conn.execute("grant select on availability to stranger")  # as Supabase's defaults do for anon
+    db.conn.execute("set local role stranger")
+
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        db.one("select count(*) from availability")

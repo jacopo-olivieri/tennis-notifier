@@ -4,6 +4,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sessionToken } from "./session_token.ts";
+import { sendMessage } from "./telegram.ts";
 import { verifyTelegramLogin } from "./telegram_login.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
@@ -49,12 +50,47 @@ async function login(req: Request): Promise<Response> {
   });
 }
 
+// The signed-in member's id, or null for a missing, forged or expired session.
+function signedIn(req: Request): Promise<number | null> {
+  const token = req.headers.get("Authorization")?.replace(/^Bearer /, "") ?? "";
+  return sessionToken.verify(token, SESSION_SECRET, new Date());
+}
+
 // GET /state → the member's state, or 401 once the session has expired or they've been removed.
 async function state(req: Request): Promise<Response> {
-  const token = req.headers.get("Authorization")?.replace(/^Bearer /, "") ?? "";
-  const memberId = await sessionToken.verify(token, SESSION_SECRET, new Date());
+  const memberId = await signedIn(req);
   const result = memberId === null ? null : await rpc("member_state", { member_id: memberId });
   return result ? json(result) : json({ error: "signed_out" }, 401);
+}
+
+// POST /watches {added: [...], removed: [...]}, each hour {weekday, hour} or {date, hour}
+// → {alert: "sent" | "failed" | "none", state}. The new-watch message goes out before
+// the reply, and its outcome is reported like the poller's sends.
+async function saveWatches(req: Request): Promise<Response> {
+  const memberId = await signedIn(req);
+  if (memberId === null || !await rpc("member_state", { member_id: memberId })) {
+    return json({ error: "signed_out" }, 401);
+  }
+  const body = await req.json().catch(() => null);
+  if (!Array.isArray(body?.added) || !Array.isArray(body?.removed)) return json({ error: "bad_request" }, 400);
+
+  const saved = await db.rpc("save_watches", { member_id: memberId, added: body.added, removed: body.removed });
+  // Data exceptions (22…) and constraint violations (23…): an hour that isn't one, e.g. weekday 8.
+  if (/^2[23]/.test(saved.error?.code ?? "")) return json({ error: "bad_request" }, 400);
+  if (saved.error) throw new Error(`save_watches: ${saved.error.message}`);
+  const message = saved.data as { chat_id: number; text: string; alert_ids: number[] } | null;
+  let alert = "none";
+  if (message) {
+    const { status, error } = await sendMessage(BOT_TOKEN, message.chat_id, message.text);
+    if (status === 200) {
+      await rpc("mark_sent", { alert_ids: message.alert_ids });
+      alert = "sent";
+    } else {
+      await rpc("mark_failed", { alert_ids: message.alert_ids, http_status: status, error });
+      alert = "failed";
+    }
+  }
+  return json({ alert, state: await rpc("member_state", { member_id: memberId }) });
 }
 
 Deno.serve(async (req) => {
@@ -64,6 +100,7 @@ Deno.serve(async (req) => {
   try {
     if (route === "POST /login") return await login(req);
     if (route === "GET /state") return await state(req);
+    if (route === "POST /watches") return await saveWatches(req);
     return json({ error: "not_found" }, 404);
   } catch (e) {
     console.error(e);

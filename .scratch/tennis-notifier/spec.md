@@ -203,6 +203,7 @@ Telegram `sendMessage` with `parse_mode: HTML`, link previews disabled, no inlin
 | Release drop | `🎾 Just released` |
 | Cancellation | `🎾 Court free` for one slot, `🎾 Courts free` for more |
 | Mixed kinds in one check | `🎾 Free now` |
+| A new-watch alert retried by a later check (its first send failed) | `🎾 Free now` |
 | New watch | `🎾 Free now for your new watches`, plus a second line listing the added hours joined by ` · ` (`Weekly Tue 11:00`, `Fri 23 Oct 15:00`) |
 | Heads-up | `🌙 Opens at midnight` |
 

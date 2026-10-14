@@ -48,12 +48,8 @@ def test_the_state_names_the_member_and_whether_they_are_the_owner(db):
     db.conn.execute("update member set is_owner = true, username = 'jacopo' where id = %s", [owner])
     friend = member(db, 222, "Friend")
 
-    assert db.call("member_state", owner) == {
-        "member": {"first_name": "Owner", "username": "jacopo", "is_owner": True},
-    }
-    assert db.call("member_state", friend) == {
-        "member": {"first_name": "Friend", "username": None, "is_owner": False},
-    }
+    assert db.call("member_state", owner)["member"] == {"first_name": "Owner", "username": "jacopo", "is_owner": True}
+    assert db.call("member_state", friend)["member"] == {"first_name": "Friend", "username": None, "is_owner": False}
 
 
 def test_a_removed_member_has_no_state(db):

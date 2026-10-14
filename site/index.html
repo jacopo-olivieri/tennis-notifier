@@ -54,6 +54,20 @@
   .tgbtn:disabled { opacity:.6; cursor:default; }
   .fine { font-size:12px; color:var(--faint); margin-top:16px !important; margin-bottom:0 !important; }
   .error { color:var(--warn) !important; font-size:13px !important; margin-top:12px !important; margin-bottom:0 !important; }
+  .btn.primary { background:var(--acc); color:var(--acc-fg); }
+  .btn:disabled { opacity:.6; cursor:default; }
+  .watches { list-style:none; margin:14px 0 0; padding:0; }
+  .watches li { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  .watches li.unsaved span { color:var(--acc-ink); }
+  .watches em { font-style:normal; font-size:12px; color:var(--muted); margin-left:6px; }
+  .x { width:28px; height:28px; border-radius:8px; color:var(--muted); font-size:18px; line-height:1; }
+  .x:hover { background:var(--cell); color:var(--fg); }
+  .empty { font-size:14px; color:var(--muted); margin:14px 0 0; }
+  .add { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .add select, .add input { font:inherit; font-size:14px; color:var(--fg); background:var(--cell); border:0; border-radius:10px; padding:8px 10px; }
+  .bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); font-size:14px; }
+  .bar span { margin-right:auto; color:var(--muted); }
+  .note { font-size:13px; color:var(--acc-ink); margin:12px 0 0; }
   footer { font-size:12px; color:var(--faint); padding:20px 0; text-align:center; }
 </style>
 </head>
