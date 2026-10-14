@@ -4,7 +4,7 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `claim_release(day, run_id)` lets exactly one run hold tonight's claim; `release_claim_held()` is true until `done_at` is set or 00:15 London, whichever comes first; the `scan` job exits at once while it's true
 - [x] `record_release(day)` returns release alerts for every free slot on that day matching a Watch, from the latest snapshot, and sets `done_at`
