@@ -6,7 +6,10 @@ import urllib.request
 
 
 def rpc(function, **params):
-    """POST to /rest/v1/rpc/<function> with the service key and return the decoded result."""
+    """POST to /rest/v1/rpc/<function> with the service key and return the decoded result.
+
+    A function returning void gets 204 with no body, so it returns None.
+    """
     key = os.environ["SUPABASE_SERVICE_KEY"]
     headers = {"apikey": key, "Content-Type": "application/json"}
     if key.startswith("ey"):  # a legacy JWT key also goes in Authorization; new sb_secret_ keys must not
@@ -18,4 +21,5 @@ def rpc(function, **params):
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=60) as resp:
-        return json.loads(resp.read())
+        body = resp.read()
+        return json.loads(body) if body else None
