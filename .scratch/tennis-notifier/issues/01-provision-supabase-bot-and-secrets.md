@@ -4,12 +4,21 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Type:** HITL
 
-- [ ] A free Supabase project exists; its URL and service key are stored as GitHub secrets and in a git-ignored local `.env`
-- [ ] A Telegram bot exists (BotFather); its token is stored as a GitHub secret and in `.env`. `/setdomain` waits until Pages is live (ticket 14)
-- [ ] The owner's Telegram user id is recorded in `.env`, ready for seeding the owner row
-- [ ] The wizard can be re-run to rotate any value
-- [ ] Nothing secret is committed; the repo stays public
+- [x] A free Supabase project exists; its URL and service key are stored as GitHub secrets and in a git-ignored local `.env`
+- [x] A Telegram bot exists (BotFather); its token is stored as a GitHub secret and in `.env`. `/setdomain` waits until Pages is live (ticket 14)
+- [x] The owner's Telegram user id is recorded in `.env`, ready for seeding the owner row
+- [x] The wizard can be re-run to rotate any value
+- [x] Nothing secret is committed; the repo stays public
+
+## Comments
+
+**2026-10-14:** Done with `scripts/provision.sh` (re-run it to rotate any value).
+
+- GitHub secrets: `TELEGRAM_BOT_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
+- Local `.env` (git-ignored): those three plus `TELEGRAM_BOT_USERNAME` and `OWNER_TELEGRAM_ID`.
+- Supabase project `tnhtgeebjpbfdkgnhrzj`, London, free plan. The DB password is in the owner's password manager, not in `.env`.
+- Created with "Automatically expose new tables" off and automatic RLS on. Migrations (ticket 02) must explicitly `GRANT` table and function privileges to `service_role`; don't rely on Supabase's default grants.
