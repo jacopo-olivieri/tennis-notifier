@@ -26,3 +26,5 @@
 - A non-`ParseError` exception from the parser escapes `scan_court` and crashes the job before `record_scan`, which also withholds the ping.
 
 **2026-10-14:** HITL done with `scripts/healthchecks.sh`. The `scan` check uses cron `*/5 * * * *` in Europe/London with 30 min grace; one cron expression can't copy cron-job.org's day/night split, and 15-minute overnight scans still land inside the grace. Email and Telegram integrations are assigned to it, and `HEALTHCHECKS_SCAN_URL` is set as a GitHub secret. A dispatched healthy `scan` ([run 38553417074](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38553417074)) had all 3 courts complete and logged `ping: 200`. The broken-parser live check is still open.
+
+**2026-10-14:** Live check done. A `scan` dispatched from a throwaway branch whose `parse_week` always raised `ParseError` ([run 38554252747](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38554252747)) read 0 weeks on all 3 courts; `record_scan` returned `all_complete: false` and the job logged `ping: withheld`. The branch was deleted afterwards.
