@@ -11,7 +11,7 @@
 - [x] Clock-boundary SQL tests: a not-open slot entering the window at 00:00:10 with its status unchanged gives nothing from `record_scan` but is alerted by `record_release`; the claim lapses at 00:15; the 25 Oct 2026 BST→GMT night behaves
 - [x] A `release` workflow (own concurrency group): claim (exit if not held), sleep to 23:59:30, probe the releasing day every ~10 s, then `record_release`, send, report, and ping the Healthchecks `release` URL
 - [x] Before relying on it, the `book.aspx` probe is confirmed to tell an open day from one not yet open; if it can't, the job falls back to calling `record_release` at 00:00:15. The outcome is recorded on this ticket
-- [ ] HITL: the owner creates the `release` check (daily 00:00 Europe/London, 20 min grace) and stores its ping URL as a GitHub secret
+- [x] HITL: the owner creates the `release` check (daily 00:00 Europe/London, 20 min grace) and stores its ping URL as a GitHub secret
 
 ## Comments
 
@@ -26,3 +26,5 @@
   - A release alert whose send fails is retried by `record_scan` only once the claim has ended. It is then sent under the `🎾 Free now` or `🎾 Just released` headline, which can be up to about 15 minutes late overnight.
   - `record_release` and `record_scan` both carry the alert guard (30-minute rule plus pending). Folding it into one predicate would mean rewriting `record_scan` again.
 - The Python side (`releasing_day`, the midnight sleep and the probe rounds) has no unit tests, by the spec's choice: it's observed live. A scratch smoke run with Camden and Telegram faked confirmed the following: one claim, a `🎾 Just released` DM reported as sent, the ping after 00:00:01, a second run adding nothing, and a scan skipped while the claim is open.
+
+**2026-10-14:** HITL done with `scripts/healthchecks.sh release`. The `release` check exists, and `HEALTHCHECKS_RELEASE_URL` is in `.env` and in the GitHub secrets. Still to do: apply the migration to the live Supabase and push. The first live release is watched in ticket 14, once cron-job.org dispatches `release`.
