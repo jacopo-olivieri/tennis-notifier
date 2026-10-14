@@ -34,3 +34,14 @@ jobs:
         run: for f in supabase/migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"; done
       - run: pip install -r requirements-dev.txt
       - run: pytest
+
+  edge-function:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/api/index.ts
+      - run: deno test supabase/functions/

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Court Watch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* From the decided prototype: prototype/watch-website, site/prototype/watches_prototype.html (v2). */
+  :root {
+    --bg:#f6f6f3; --card:#ffffff; --fg:#17201b; --muted:#6b7570; --faint:#a3aca7; --line:#e7e8e3;
+    --cell:#eff0ec; --cell-hover:#e5e7e1; --acc:#2f7a4f; --acc-fg:#ffffff; --acc-soft:#e2f0e7; --acc-ink:#1f5c39;
+    --warn:#b4412c; --tg:#2aabee; --shadow:0 1px 2px #0000000a, 0 4px 16px #0000000a;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg:#111412; --card:#1a1e1c; --fg:#e8ece9; --muted:#9aa49f; --faint:#66706b; --line:#2a302d;
+    --cell:#232825; --cell-hover:#2c322f; --acc:#4fae78; --acc-fg:#0d1a12; --acc-soft:#1f3328; --acc-ink:#8fd3ab;
+    --warn:#e07a62; --shadow:none;
+  } }
+  :root[data-theme="dark"] {
+    --bg:#111412; --card:#1a1e1c; --fg:#e8ece9; --muted:#9aa49f; --faint:#66706b; --line:#2a302d;
+    --cell:#232825; --cell-hover:#2c322f; --acc:#4fae78; --acc-fg:#0d1a12; --acc-soft:#1f3328; --acc-ink:#8fd3ab;
+    --warn:#e07a62; --shadow:none;
+  }
+  * { box-sizing:border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 Inter, -apple-system, system-ui, sans-serif; }
+  button { font:inherit; color:inherit; cursor:pointer; border:0; background:none; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 16px; }
+
+  header { display:flex; align-items:center; justify-content:space-between; padding:20px 0 16px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .brand b { font-size:16px; font-weight:650; letter-spacing:-.01em; display:block; line-height:1.2; }
+  .brand span { font-size:12.5px; color:var(--muted); }
+  .avatar { width:32px; height:32px; border-radius:50%; background:var(--acc-soft); color:var(--acc-ink); display:grid; place-items:center; font-weight:600; font-size:13px; flex:none; }
+  .menu { position:relative; }
+  .menu-pop { position:absolute; right:0; top:40px; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:6px; min-width:200px; z-index:20; }
+  .menu-pop div { padding:8px 10px; font-size:13px; color:var(--muted); }
+  .menu-pop button { display:block; width:100%; text-align:left; padding:8px 10px; border-radius:8px; font-size:14px; }
+  .menu-pop button:hover { background:var(--cell); }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; box-shadow:var(--shadow); }
+  h2 { font-size:15px; font-weight:600; margin:0 0 4px; letter-spacing:-.01em; }
+  .sub { font-size:13px; color:var(--muted); margin:0; }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:10px; font-weight:550; font-size:14px; background:var(--cell); }
+  .btn:hover { background:var(--cell-hover); }
+
+  .gate { min-height:80vh; display:grid; place-items:center; text-align:center; padding:24px 0; }
+  .gate .card { max-width:400px; padding:32px 28px; }
+  .gate h1 { font-size:22px; letter-spacing:-.02em; margin:16px 0 8px; }
+  .gate p { color:var(--muted); margin:0 0 22px; font-size:14.5px; }
+  .tgbtn { display:inline-flex; align-items:center; gap:10px; background:var(--tg); color:#fff; padding:11px 22px; border-radius:22px; font-weight:600; font-size:15px; }
+  .tgbtn:disabled { opacity:.6; cursor:default; }
+  .fine { font-size:12px; color:var(--faint); margin-top:16px !important; margin-bottom:0 !important; }
+  .error { color:var(--warn) !important; font-size:13px !important; margin-top:12px !important; margin-bottom:0 !important; }
+  footer { font-size:12px; color:var(--faint); padding:20px 0; text-align:center; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://telegram.org/js/telegram-widget.js?22"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

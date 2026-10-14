@@ -1,0 +1,6 @@
+# Only what the Supabase CLI needs to deploy the Edge Function; everything else is default.
+project_id = "tennis_notifier"
+
+# The site sends its own session token, not a Supabase JWT.
+[functions.api]
+verify_jwt = false

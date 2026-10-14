@@ -179,6 +179,7 @@ Each producer returns ready-to-send messages `(chat_id, text, alert_ids[])`. The
 | `claim_release(day, run_id)` | `release` job | Returns whether this run holds the claim. |
 | `release_claim_held()` | `scan` job | True while a release claim for tonight exists, has no `done_at` and is before 00:15. The scan exits at once when it's true. |
 | `login(telegram_user, invite_token null)` | Edge Function | Refreshes an existing member. Otherwise redeems a valid invite: it must be unused, unexpired and unrevoked, then the invite is marked used and a member is created. Otherwise returns "not a member". |
+| `member_state(member_id)` | Edge Function | What `GET /state` returns for a signed-in member, or null once they've been removed. |
 | `create_invite(owner)`, `revoke_invite(owner, token_hash)`, `list_members(owner)`, `remove_member(owner, member)` | Edge Function | Owner-only; refused for anyone else. |
 | `housekeep()` | `pg_cron` daily at ~03:00 London | Deletes past single-date watches, past slots, expired invites, and alert, slot_change and scan_log rows older than 30 days. A plain function, so it's testable without pg_cron. |
 

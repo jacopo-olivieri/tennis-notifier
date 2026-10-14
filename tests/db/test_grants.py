@@ -29,3 +29,31 @@ def test_functions_added_later_are_callable_by_service_role_only(db):
     db.conn.execute("set local role stranger")
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         db.one("select added_later()")
+
+
+def test_other_roles_cannot_log_anyone_in(db):
+    db.conn.execute("create role stranger")
+    db.conn.execute("set local role stranger")
+
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        db.call("login", {"id": 111, "first_name": "Owner"}, None)
+
+
+def test_other_roles_cannot_read_a_members_state(db):
+    db.conn.execute("create role stranger")
+    db.conn.execute("set local role stranger")
+
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        db.call("member_state", 1)
+
+
+def test_every_table_denies_anonymous_access(db):
+    """RLS on with no policies: only service_role, which bypasses RLS, sees a row."""
+    tables = db.rows(
+        "select c.relname, c.relrowsecurity from pg_class c"
+        " where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'"
+    )
+    policies = db.one("select count(*) from pg_policies where schemaname = 'public'")
+
+    assert tables and all(rls for _, rls in tables), tables
+    assert policies == 0
