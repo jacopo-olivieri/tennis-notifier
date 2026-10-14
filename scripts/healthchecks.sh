@@ -192,6 +192,12 @@ cd "$(git rev-parse --show-toplevel)"
 
 TOTAL_STAGES=4
 
+# The prompts need a keyboard; without one every read comes back empty.
+if [[ ! -t 0 ]]; then
+  echo "Run this in a terminal window (not through Claude Code's ! prefix): scripts/healthchecks.sh" >&2
+  exit 1
+fi
+
 banner "Tennis notifier: Healthchecks.io scan check"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
