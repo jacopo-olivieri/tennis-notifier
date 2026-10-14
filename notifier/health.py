@@ -4,14 +4,21 @@ import os
 import urllib.request
 
 
+def bot_token_ok(send_outcomes):
+    """False if any send returned 401: the bot token was revoked.
+
+    A member who blocked the bot gives 403, which isn't a health problem.
+    """
+    return 401 not in send_outcomes
+
+
 def should_ping(scan_result, send_outcomes):
     """True only if record_scan succeeded, all 3 courts were complete and no send returned 401.
 
     scan_result is record_scan's result (None if it failed); send_outcomes are the
-    HTTP statuses of this run's sends. A revoked bot token gives 401; a member who
-    blocked the bot gives 403, which isn't a health problem.
+    HTTP statuses of this run's sends.
     """
-    return scan_result is not None and scan_result["all_complete"] and 401 not in send_outcomes
+    return scan_result is not None and scan_result["all_complete"] and bot_token_ok(send_outcomes)
 
 
 def ping(check):

@@ -1,0 +1,31 @@
+name: release
+
+# Alerts the slots released at midnight London time. Dispatched by cron-job.org
+# at 23:45 and 23:50; the run that claims the night waits for midnight, and the
+# other exits. Its own concurrency group, so it never queues behind a scan.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Release
+        run: python -m notifier.release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          HEALTHCHECKS_RELEASE_URL: ${{ secrets.HEALTHCHECKS_RELEASE_URL }}

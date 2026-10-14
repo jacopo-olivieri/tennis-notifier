@@ -1,4 +1,4 @@
-"""The `scan` job: read all three courts, record them in the snapshot, send the alerts and ping Healthchecks."""
+"""The `scan` job: unless a release holds the night, read all three courts, record them in the snapshot, send the alerts and ping Healthchecks."""
 
 import json
 import sys
@@ -11,6 +11,9 @@ from notifier.telegram import send_message
 
 
 def main():
+    if rpc("release_claim_held"):
+        print("release in progress: scan skipped")
+        return
     courts = []
     for i, (number, court) in enumerate(COURTS.items()):
         if i:

@@ -8,6 +8,7 @@ import http.client
 import http.cookiejar
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, timedelta
@@ -73,9 +74,16 @@ def next_week_form(page):
     return form
 
 
-def fetch(opener, url, data=None):
+def session(*handlers):
+    """A cookie-keeping opener with a browser User-Agent."""
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), *handlers)
+    opener.addheaders = [("User-Agent", UA), ("Accept-Language", "en-GB,en;q=0.9")]
+    return opener
+
+
+def fetch(opener, url, data=None, timeout=60):
     body = urllib.parse.urlencode(data).encode() if data is not None else None
-    with opener.open(url, body, timeout=60) as resp:
+    with opener.open(url, body, timeout=timeout) as resp:
         return resp.read().decode("utf-8", errors="replace")
 
 
@@ -84,8 +92,7 @@ def scan_court(court):
 
     Whether the court counts as complete is record_scan's call, not ours.
     """
-    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-    opener.addheaders = [("User-Agent", UA), ("Accept-Language", "en-GB,en;q=0.9")]
+    opener = session()
     url = BASE + court["page"]
     slots, weeks = {}, 0
     try:
@@ -107,3 +114,31 @@ def scan_court(court):
     if error:
         result["error"] = error
     return result
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def probe_session(timeout=60):
+    """A session that doesn't follow redirects, holding the site cookie book.aspx needs."""
+    opener = session(_NoRedirect())
+    fetch(opener, BASE + COURTS[1]["page"], timeout=timeout)
+    return opener
+
+
+def slot_is_open(opener, court, day, hour, timeout=60):
+    """Whether book.aspx takes this slot: it redirects to login.aspx if the slot is
+    open and free, and back to the court's page if it is booked or not open yet.
+
+    The grid can't tell: it shows "Book" beyond the booking window too.
+    """
+    query = urllib.parse.urlencode({"fdCourseEventId": court["event_id"], "fdDate": day.strftime("%d/%m/%Y"), "fdTime": hour})
+    try:
+        opener.open(f"{BASE}/courses/book.aspx?{query}", timeout=timeout).close()
+    except urllib.error.HTTPError as e:
+        if e.code not in (301, 302, 303):
+            raise
+        return "login.aspx" in e.headers.get("Location", "")
+    return False

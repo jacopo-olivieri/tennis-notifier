@@ -184,21 +184,43 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-# Ticket 05: the Healthchecks.io `scan` check, its alert integrations, and its
-# ping URL as the HEALTHCHECKS_SCAN_URL GitHub secret. Re-run any time to
-# replace the URL.
+# Tickets 05 and 06: a Healthchecks.io check, its alert integrations, and its
+# ping URL as a GitHub secret. `scripts/healthchecks.sh` sets up the `scan`
+# check (HEALTHCHECKS_SCAN_URL); `scripts/healthchecks.sh release` sets up the
+# `release` check (HEALTHCHECKS_RELEASE_URL). Re-run any time to replace a URL.
 
 cd "$(git rev-parse --show-toplevel)"
+
+CHECK="${1:-scan}"
+case "$CHECK" in
+  scan)
+    CRON="*/5 * * * *"; GRACE="30 minutes"
+    WHAT="the scan job stops pinging it"
+    SCHEDULE_NOTE=("One cron expression can't copy cron-job.org's day/night split; with 30 min"
+                   "of grace, overnight 15-minute scans still land well inside the window.")
+    NEXT_NOTE=("Next: push the code, then dispatch the scan workflow and look for 'ping: 200'.")
+    ;;
+  release)
+    CRON="0 0 * * *"; GRACE="20 minutes"
+    WHAT="tonight's midnight release didn't complete"
+    SCHEDULE_NOTE=("The release job pings just after midnight once its alerts are sent, so a"
+                   "missed release alarms by 00:20 even though regular scans carry on.")
+    NEXT_NOTE=("Next: once cron-job.org dispatches release at 23:45, look for 'ping: 200' after midnight."
+               "A release dispatched outside 23:30–00:15 claims nothing and exits.")
+    ;;
+  *) echo "Usage: scripts/healthchecks.sh [scan|release]" >&2; exit 1 ;;
+esac
+URL_KEY="HEALTHCHECKS_$(printf '%s' "$CHECK" | tr '[:lower:]' '[:upper:]')_URL"
 
 TOTAL_STAGES=4
 
 # The prompts need a keyboard; without one every read comes back empty.
 if [[ ! -t 0 ]]; then
-  echo "Run this in a terminal window (not through Claude Code's ! prefix): scripts/healthchecks.sh" >&2
+  echo "Run this in a terminal window (not through Claude Code's ! prefix): scripts/healthchecks.sh $CHECK" >&2
   exit 1
 fi
 
-banner "Tennis notifier: Healthchecks.io scan check"
+banner "Tennis notifier: Healthchecks.io $CHECK check"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Preflight: GitHub CLI and a git-ignored .env"
@@ -217,18 +239,17 @@ fi
 pause
 
 # ── 2 ─────────────────────────────────────────────────────────────────────
-stage "Healthchecks.io: create the scan check"
-say "A dead-man's switch: it alarms when the scan job stops pinging it."
+stage "Healthchecks.io: create the $CHECK check"
+say "A dead-man's switch: it alarms when $WHAT."
 open_url "https://healthchecks.io/accounts/signup/"
 step "Sign up for a free account (or log in), and open your project."
-step "Click 'Add Check'. Name it: scan"
+step "Click 'Add Check'. Name it: $CHECK"
 step "Click 'Change Schedule…' and pick the 'Cron' tab. Set:"
-note "    Cron expression:  */5 * * * *"
+note "    Cron expression:  $CRON"
 note "    Time zone:        Europe/London"
-note "    Grace time:       30 minutes"
+note "    Grace time:       $GRACE"
 step "Save the schedule."
-note "One cron expression can't copy cron-job.org's day/night split; with 30 min"
-note "of grace, overnight 15-minute scans still land well inside the window."
+for line in "${SCHEDULE_NOTE[@]}"; do note "$line"; done
 pause "Done? Press Enter"
 
 # ── 3 ─────────────────────────────────────────────────────────────────────
@@ -237,26 +258,27 @@ say "Healthchecks alerts through its own Telegram bot, so a revoked token on"
 say "your bot can't silence it."
 step "Open 'Integrations' in the top menu."
 step "Email: your signup address should already be listed. If not, add it."
-step "Telegram: click 'Add Integration' next to Telegram and follow the on-screen"
-step "steps: message Healthchecks' bot, then open the confirmation link it sends."
-step "Back on the scan check, under 'Notification Methods', make sure both"
+step "Telegram: if it isn't listed yet, click 'Add Integration' next to Telegram"
+step "and follow the on-screen steps: message Healthchecks' bot, then open the"
+step "confirmation link it sends."
+step "Back on the $CHECK check, under 'Notification Methods', make sure both"
 step "Email and Telegram are switched on."
 pause "Done? Press Enter"
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
 stage "Save the ping URL as a GitHub secret"
-step "On the scan check, copy its ping URL (looks like https://hc-ping.com/<id>)."
+step "On the $CHECK check, copy its ping URL (looks like https://hc-ping.com/<id>)."
 note "Anyone with it could ping the check and hide an outage, so input is hidden."
 while :; do
-  ask_secret HEALTHCHECKS_SCAN_URL "Paste the ping URL:"
-  [[ "$HEALTHCHECKS_SCAN_URL" =~ ^https://hc-ping\.com/[A-Za-z0-9_/-]+$ ]] && break
+  ask_secret "$URL_KEY" "Paste the ping URL:"
+  [[ "${!URL_KEY}" =~ ^https://hc-ping\.com/[A-Za-z0-9_/-]+$ ]] && break
   warn "That doesn't look like https://hc-ping.com/<id>. Try pasting it again."
 done
-write_env HEALTHCHECKS_SCAN_URL "$HEALTHCHECKS_SCAN_URL"
-set_secret HEALTHCHECKS_SCAN_URL "$HEALTHCHECKS_SCAN_URL"
+write_env "$URL_KEY" "${!URL_KEY}"
+set_secret "$URL_KEY" "${!URL_KEY}"
 if confirm "Send one test ping now (the check turns green)?"; then
-  if curl -fsS -m 10 "$HEALTHCHECKS_SCAN_URL" >/dev/null; then
-    note "Ping accepted. The scan check should now show as up."
+  if curl -fsS -m 10 "${!URL_KEY}" >/dev/null; then
+    note "Ping accepted. The $CHECK check should now show as up."
   else
     warn "The test ping failed. Check the URL and re-run this wizard."
   fi
@@ -264,4 +286,4 @@ fi
 pause
 
 finish
-note "Next: push the code, then dispatch the scan workflow and look for 'ping: 200'."
+for line in "${NEXT_NOTE[@]}"; do note "$line"; done
