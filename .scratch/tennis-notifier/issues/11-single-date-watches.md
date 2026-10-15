@@ -4,7 +4,7 @@
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A 7-week calendar showing each day's free count; copy "Click a day, then the hours you want to play."
 - [x] Clicking a day lists only the hours when a court runs, each marked "✓ Weekly" (covered by a weekly watch, not clickable), "✓ Watching", "N free" or "Booked"
@@ -34,3 +34,4 @@
     - A single-date hour later also covered by a weekly watch keeps both. The day shows "✓ Weekly" and the dated one can only be removed with × in the panel, as in the prototype.
     - `toggleDated` sits beside `toggle` rather than merging with it, since only weekly toggles move the grid's focus.
 
+**2026-10-15:** Live. Main was pushed as 00c53eb; `test` and `pages` passed. The owner checked the Single dates tab on a phone, and it looks right.
