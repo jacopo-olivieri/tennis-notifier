@@ -1,8 +1,12 @@
-// Court Watch: signing in with Telegram, then the member's week grid of watched hours. The
-// session token lives in localStorage for its 30 days; everything else comes from the Edge
-// Function. What the grid and panel show is worked out in watches.js.
+// Court Watch: signing in with Telegram, then the member's watched hours: a week grid for
+// weekly ones and a calendar for single dates. The session token lives in localStorage for
+// its 30 days; everything else comes from the Edge Function. What the grid, calendar and
+// panel show is worked out in watches.js.
 
-import { WEEKDAYS, byDateHour, changes, dayLabel, gridHours, hh, keyOf, londonNow, watchLines, weekCell } from "./watches.js";
+import {
+  WEEKDAYS, byDateHour, calendar, changes, dayHours, dayLabel, gridHours, hh, keyOf, londonNow, opensOn, upcoming,
+  watchLines, weekCell,
+} from "./watches.js";
 
 const SESSION_KEY = "court-watch-session";
 const UNREACHABLE = "Couldn't reach the server. Try again in a minute.";
@@ -12,6 +16,7 @@ const S = {
   // The member's hours as saved and as they'd be after saving, as watch keys (watches.js).
   saved: new Set(), draft: new Set(),
   focus: null, // the grid cell whose detail shows: {weekday, hour}
+  tab: "weekly", date: null, // the Single dates tab's chosen day
 };
 
 const BALL = `<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="14" fill="var(--acc)"/><path d="M5 6.5c5 3 6.5 12 0 17M25 6.5c-5 3-6.5 12 0 17" fill="none" stroke="var(--acc-fg)" stroke-width="1.6" stroke-linecap="round"/></svg>`;
@@ -68,10 +73,17 @@ function logIn() {
   });
 }
 
-// A fresh state from the server replaces the member's saved and draft hours.
+// A fresh state from the server replaces the member's saved and draft hours. Single-date
+// hours that have started are left out until housekeeping deletes them.
 function showMember(state, extra = {}) {
-  const saved = new Set(state.watches.map(keyOf));
+  const saved = new Set(upcoming(state.watches.map(keyOf), londonNow()));
   show("member", { state, saved, draft: new Set(saved), ...extra });
+}
+
+function toggleDated(date, hour) {
+  const k = keyOf({ date, hour });
+  S.draft.has(k) ? S.draft.delete(k) : S.draft.add(k);
+  Object.assign(S, { note: "", error: "" });
 }
 
 function toggle(weekday, hour, on) {
@@ -90,7 +102,7 @@ async function saveWatches() {
     if (res.status === 401) return logOut();
     if (res.status !== 200) return show("member", { error: "That didn't save. Try again." });
     showMember(res.body.state, {
-      focus: S.focus,
+      focus: S.focus, date: S.date,
       note: !batch.added.length ? "Saved." : {
         sent: "Saved. What's free now on those hours is in your Telegram.",
         failed: "Saved, but the bot couldn't message you what's free now.",
@@ -106,7 +118,7 @@ async function saveWatches() {
 
 function logOut() {
   session.set(null);
-  show("signedout", { state: null, saved: new Set(), draft: new Set(), focus: null, note: "" });
+  show("signedout", { state: null, saved: new Set(), draft: new Set(), focus: null, tab: "weekly", date: null, note: "" });
 }
 
 function show(screen, extra = {}) {
@@ -169,6 +181,46 @@ function detailCard(inline) {
     <div class="rows">${cell ? cell.weeks.map(w => `<div><span>${dayLabel(w.date)}</span>${chip(w)}</div>`).join("") : ""}</div></div>`;
 }
 
+function tabs() {
+  const { weekly, single } = watchLines(S.draft, S.state.availability);
+  const tab = (key, label, n) => `<button role="tab" class="${S.tab === key ? "on" : ""}" data-tab="${key}" aria-selected="${S.tab === key}">${label}${n ? `<span class="count">${n}</span>` : ""}</button>`;
+  return `<div class="tabs" role="tablist">${tab("weekly", "Weekly", weekly.length)}${tab("dates", "Single dates", single.length)}</div>`;
+}
+
+function datesCard() {
+  const { availability: avail, window_end: windowEnd } = S.state;
+  const days = calendar(avail, S.draft, londonNow(), windowEnd);
+  const cells = days.map((d, i) => {
+    const month = i === 0 || d.date.endsWith("-01") ? `<span class="m">${dayLabel(d.date).split(" ")[2]}</span>` : "";
+    const [long, short] = d.notOpen ? ["not open", "·"] : d.free ? [`${d.free} free`, d.free] : ["full", "full"];
+    return `<button class="day ${d.notOpen ? "later" : ""} ${S.date === d.date ? "sel" : ""} ${d.watching ? "has" : ""}" data-date="${d.date}"
+      ${d.past ? "disabled" : ""} aria-label="${dayLabel(d.date)}, ${d.past ? "past" : long}${d.watching ? ", watching" : ""}">
+      <span class="n">${Number(d.date.slice(8))}${month}</span>
+      <span class="c ${d.free && !d.notOpen ? "" : "zero"}"><span class="l">${long}</span><span class="s">${short}</span></span></button>`;
+  }).join("");
+  return `<div class="card"><h2>Single dates</h2><p class="sub">Click a day, then the hours you want to play.</p>
+    <div class="legend"><span><i style="background:var(--acc)"></i>You're watching hours that day</span><span><i class="sq" style="border:1px dashed var(--line)"></i>Not bookable yet</span></div>
+    <div class="cal">${WEEKDAYS.map(d => `<div class="dh">${d}</div>`).join("")}${cells}</div></div>`;
+}
+
+// The chosen day's hours. A day not open yet says when booking opens.
+function dayCard() {
+  if (!S.date) return `<div class="card"><h2>Pick a day</h2><p class="sub" style="margin:0">Click a day, then the hours you want to play.</p></div>`;
+  const { availability: avail, window_end: windowEnd } = S.state;
+  const notOpen = S.date > windowEnd;
+  const hour = h => {
+    if (h.state === "weekly") return `<div class="hour cov" title="Already in your Weekly hours"><b>${hh(h.hour)}</b><span>✓ Weekly</span></div>`;
+    const label = h.state === "watching" ? "✓ Watching" : h.state === "free" ? `${h.free} free`
+      : { booked: "Booked", "not open": "Not open", "no session": "No session" }[h.state];
+    return `<button class="hour ${h.state === "watching" ? "on" : h.state === "free" ? "free" : ""}" data-hour="${h.hour}" ${S.busy ? "disabled" : ""}
+      aria-pressed="${h.state === "watching"}"><b>${hh(h.hour)}</b><span>${label}</span></button>`;
+  };
+  const hours = dayHours(avail, S.draft, S.date, windowEnd);
+  return `<div class="card"><h2>${dayLabel(S.date)}</h2>
+    <p class="sub">${hours.length ? "Click the hours you want to play." : "No court hours left that day."}${notOpen ? ` Booking opens at midnight on ${dayLabel(opensOn(S.date, londonNow(), windowEnd))}.` : ""}</p>
+    <div class="hours">${hours.map(hour).join("")}</div></div>`;
+}
+
 function watchesCard() {
   const { weekly, single } = watchLines(S.draft, S.state.availability);
   const line = l => `<div><span>${l.label} <span class="muted">${l.time}</span></span><span class="row-r">
@@ -202,7 +254,10 @@ function member() {
     <div class="menu"><button class="avatar" data-act="menu" aria-label="Account" aria-expanded="${S.menu}">${esc(m.first_name.slice(0, 1).toUpperCase())}</button>
     ${S.menu ? `<div class="menu-pop"><div>${esc(m.first_name)}${m.username ? ` · @${esc(m.username)}` : ""}<br>Alerts go to your Telegram DMs.</div><button data-act="logout">Log out</button></div>` : ""}</div></header>
     ${S.state.unreachable_since ? `<div class="banner" role="alert"><b>The bot can't message you.</b> Unblock it in Telegram to get alerts again. This goes away once a message gets through.</div>` : ""}
-    <div class="layout"><div>${weeklyCard()}</div><div class="side"><div id="detail-wide">${detailCard(false)}</div>${watchesCard()}</div></div>
+    ${tabs()}
+    ${S.tab === "weekly"
+      ? `<div class="layout"><div>${weeklyCard()}</div><div class="side"><div id="detail-wide">${detailCard(false)}</div>${watchesCard()}</div></div>`
+      : `<div class="layout"><div>${datesCard()}</div><div class="side">${dayCard()}${watchesCard()}</div></div>`}
     ${footer()}</div>${bottomBar()}`;
 }
 
@@ -261,6 +316,17 @@ document.addEventListener("click", e => {
     toggle(c.weekday, c.hour);
     render();
     return document.querySelector(`.cell[data-weekday="${c.weekday}"][data-hour="${c.hour}"]`)?.focus();
+  }
+  const tab = e.target.closest("[data-tab]");
+  if (tab) { S.tab = tab.dataset.tab; S.menu = false; return render(); }
+  const day = e.target.closest(".day");
+  if (day) { S.date = day.dataset.date; return render(); }
+  const hour = e.target.closest(".hour[data-hour]");
+  if (hour) {
+    if (S.busy) return;
+    toggleDated(S.date, Number(hour.dataset.hour));
+    render();
+    return document.querySelector(`.hour[data-hour="${hour.dataset.hour}"]`)?.focus();
   }
   const target = e.target.closest("[data-act]");
   const act = target?.dataset.act;

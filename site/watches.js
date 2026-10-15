@@ -1,4 +1,4 @@
-// What the week grid and the "Your watches" panel show, from the server's state.
+// What the week grid, the Single dates calendar and the "Your watches" panel show, from the server's state.
 // Pure functions, so `deno test` covers them; app.js only renders and handles clicks.
 // A watch is {weekday, hour} (ISO weekday, Mon = 1) or {date, hour}; drafts hold their keys.
 
@@ -58,6 +58,61 @@ export function gridHours(avail, draft) {
   for (const k of draft) if (k[0] === "w") hours.add(watchOf(k).hour);
   return [...hours].sort((a, b) => a - b);
 }
+
+// The Single dates calendar: seven weeks from this Monday. Each day counts the courts free
+// on its hours still to come; days after window_end aren't open, days before today are past.
+export function calendar(avail, draft, now, windowEnd) {
+  const start = addDays(now.date, 1 - weekdayOf(now.date));
+  const free = new Map();
+  for (const a of avail) free.set(a.date, (free.get(a.date) ?? 0) + a.free_courts.length);
+  const watched = new Set([...draft].filter(k => k[0] === "d").map(k => watchOf(k).date));
+  return Array.from({ length: 49 }, (_, i) => addDays(start, i)).map(date => ({
+    date,
+    past: date < now.date,
+    notOpen: date > windowEnd,
+    free: free.get(date) ?? 0, // availability has only hours still to come
+    watching: watched.has(date),
+  }));
+}
+
+// A day's hours: those a court runs, plus that date's watched hours. A day past window_end that
+// wasn't scanned takes its weekday's latest scanned hours. Each hour is "weekly" (covered
+// by a weekly watch, so not clickable), "watching", or what availability says about it.
+export function dayHours(avail, draft, date, windowEnd) {
+  const courtRuns = a => a.status !== "no session";
+  const rows = new Map(avail.filter(a => a.date === date).map(a => [a.hour, a]));
+  let hours = [...rows.values()].filter(courtRuns).map(a => a.hour);
+  if (date > windowEnd && !hours.length) {
+    const ref = avail.filter(a => courtRuns(a) && a.date < date && weekdayOf(a.date) === weekdayOf(date))
+      .reduce((latest, a) => a.date > latest ? a.date : latest, "");
+    hours = ref ? avail.filter(a => a.date === ref && courtRuns(a)).map(a => a.hour) : gridHours(avail, []);
+  }
+  const weekly = h => draft.has(keyOf({ weekday: weekdayOf(date), hour: h }));
+  const watching = h => draft.has(keyOf({ date, hour: h }));
+  for (const k of draft) if (watchOf(k).date === date) hours.push(watchOf(k).hour);
+  return [...new Set(hours)].sort((a, b) => a - b).map(hour => {
+    const a = rows.get(hour);
+    const free = date > windowEnd || !a ? 0 : a.free_courts.length;
+    const state = weekly(hour) ? "weekly" : watching(hour) ? "watching"
+      : date > windowEnd ? "not open" : a ? a.status : "no session";
+    return { hour, state, free };
+  });
+}
+
+// Booking for a date opens at midnight as many days before it as window_end is after today.
+export const opensOn = (date, now, windowEnd) => {
+  let opens = date;
+  for (let d = now.date; d < windowEnd; d = addDays(d, 1)) opens = addDays(opens, -1);
+  return opens;
+};
+
+// The watch keys still to come: a single-date hour that has started is past, so the site
+// hides it until housekeeping deletes it.
+export const upcoming = (keys, now) => [...keys].filter(k => {
+  if (k[0] === "w") return true;
+  const { date, hour } = watchOf(k);
+  return date > now.date || (date === now.date && hour > now.hour);
+});
 
 // Contiguous hours per day (a weekday or a date) as {day, from, to}, `to` exclusive.
 function runs(watches, dayOf) {

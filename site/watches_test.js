@@ -1,5 +1,7 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { changes, gridHours, keyOf, londonNow, nextDates, watchLines, weekCell } from "./watches.js";
+import {
+  calendar, changes, dayHours, gridHours, keyOf, londonNow, nextDates, opensOn, upcoming, watchLines, weekCell,
+} from "./watches.js";
 
 // Thu 15 Oct 2026, 09:30 London; window_end is today + 34.
 const NOW = { date: "2026-10-15", hour: 9 };
@@ -85,4 +87,75 @@ Deno.test("changes are the draft's hours not saved, and the saved hours not in t
     removed: [{ date: "2026-10-31", hour: 10 }],
   });
   assertEquals(changes(saved, new Set(saved)), { added: [], removed: [] });
+});
+
+Deno.test("the calendar is seven weeks from this Monday, each day with its free count", () => {
+  const avail = [row("2026-10-15", 10, [1, 2]), row("2026-10-15", 11, [3]), row("2026-10-16", 8)];
+  const days = calendar(avail, new Set(), NOW, WINDOW_END);
+  assertEquals(days.length, 49);
+  assertEquals([days[0].date, days[48].date], ["2026-10-12", "2026-11-29"]);
+  assertEquals(days.slice(2, 5).map(d => [d.date, d.past, d.free]), [
+    ["2026-10-14", true, 0],
+    ["2026-10-15", false, 3],
+    ["2026-10-16", false, 0],
+  ]);
+});
+
+Deno.test("days after window_end are not open, and days with watched hours are marked", () => {
+  const days = calendar([], new Set(["d2026-11-21-10", "w6-10"]), NOW, WINDOW_END);
+  const day = date => days.find(d => d.date === date);
+  assertEquals([day("2026-11-18").notOpen, day("2026-11-19").notOpen], [false, true]);
+  assertEquals([day("2026-11-21").watching, day("2026-11-14").watching], [true, false]);
+});
+
+Deno.test("a day lists only the hours a court runs, each free, covered by a weekly watch or watched", () => {
+  const avail = [
+    row("2026-10-24", 8, [1, 2]), row("2026-10-24", 9), row("2026-10-24", 10, [3]),
+    { date: "2026-10-24", hour: 20, free_courts: [], status: "no session" },
+  ];
+  const hours = dayHours(avail, new Set(["d2026-10-24-10", "w6-9"]), "2026-10-24", WINDOW_END);
+  assertEquals(hours.map(h => [h.hour, h.state, h.free]), [
+    [8, "free", 2],
+    [9, "weekly", 0], // covered by the Saturday weekly watch, so not clickable
+    [10, "watching", 1],
+  ]);
+});
+
+Deno.test("a watched hour shows on its day even when no court runs then", () => {
+  const avail = [row("2026-10-24", 8), { date: "2026-10-24", hour: 20, free_courts: [], status: "no session" }];
+  assertEquals(dayHours(avail, new Set(["d2026-10-24-20"]), "2026-10-24", WINDOW_END).map(h => [h.hour, h.state]), [
+    [8, "booked"],
+    [20, "watching"],
+  ]);
+});
+
+Deno.test("a day not open yet shows its own scanned hours, else that weekday's latest known ones", () => {
+  const notOpen = (date, hour) => ({ date, hour, free_courts: [], status: "not open" });
+  const avail = [
+    row("2026-11-14", 8, [1]), row("2026-11-14", 9), notOpen("2026-11-21", 9), notOpen("2026-11-21", 10),
+  ];
+  assertEquals(dayHours(avail, new Set(), "2026-11-21", WINDOW_END).map(h => [h.hour, h.state]), [
+    [9, "not open"],
+    [10, "not open"],
+  ]);
+  assertEquals(dayHours(avail, new Set(), "2026-11-28", WINDOW_END).map(h => [h.hour, h.state]), [
+    [9, "not open"],
+    [10, "not open"],
+  ]);
+  // Nothing scanned yet at all: the grid's default hours.
+  assertEquals(dayHours([], new Set(), "2026-11-28", WINDOW_END).length, 15);
+});
+
+Deno.test("a bookable day with no hours left shows none, not last week's", () => {
+  const avail = [row("2026-10-08", 20), row("2026-10-16", 8)];
+  assertEquals(dayHours(avail, new Set(), "2026-10-15", WINDOW_END), []);
+});
+
+Deno.test("booking for a date opens window_end's distance before it", () => {
+  assertEquals(opensOn("2026-11-21", NOW, WINDOW_END), "2026-10-18");
+});
+
+Deno.test("single-date hours that have started drop out; weekly ones stay", () => {
+  const keys = ["d2026-10-14-20", "d2026-10-15-9", "d2026-10-15-10", "d2026-10-31-10", "w1-8"];
+  assertEquals(upcoming(keys, NOW), ["d2026-10-15-10", "d2026-10-31-10", "w1-8"]);
 });

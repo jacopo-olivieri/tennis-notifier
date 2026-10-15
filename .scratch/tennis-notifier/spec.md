@@ -322,7 +322,7 @@ Nothing about members is stored in the repo.
    - `should_ping`: all complete with no 401, one court incomplete, a 401 present, a 403 only.
    - `verifyTelegramLogin` with `deno test`: a known-good vector, a tampered field, a stale `auth_date`.
    - Session token: sign then verify, a tampered token, an expired token.
-   - The site's `watches.js` with `deno test` (added in ticket 10): the five weeks behind a grid cell, dashed cells, the grid's hours, merged watch lines with their free counts, and the save batch.
+   - The site's `watches.js` with `deno test` (added in ticket 10): the five weeks behind a grid cell, dashed cells, the grid's hours, merged watch lines with their free counts, and the save batch. Ticket 11 added the Single dates calendar, a day's hours, the booking-open date and hiding past single-date watches.
 
 **Not automated, by choice:**
 - The orchestration glue and Edge Function HTTP wiring: a manual smoke test.
