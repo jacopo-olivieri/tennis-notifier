@@ -4,7 +4,7 @@
 
 **Blocked by:** 04, 09
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The Weekly tab: clicking a cell watches that weekday and hour; each cell shows 5 dots (green = a court free that week, grey = booked); dashed cells for hours with no session
 - [x] Selecting a cell shows the next five dates for that weekday and hour with which courts are free on each
@@ -12,7 +12,7 @@
 - [x] Changes collect in an "N unsaved changes · Discard · Save" bar; Save sends one batch
 - [x] Footer: last check time, bookable-until date, "Booking stays on Camden Active"
 - [x] The banner "the bot can't message you — unblock it" shows while `unreachable_since` is set
-- [ ] Mobile: the same layout stacked, with the detail directly under the grid; checked by hand against the prototype
+- [x] Mobile: the same layout stacked, with the detail directly under the grid; checked by hand against the prototype
 
 ## Comments
 
@@ -30,3 +30,5 @@
   - Fixed: × no longer works while a save is in flight; a mouse toggle can't swallow a later touch or keyboard click; a drag released outside the window stops painting; an old toast timer can't clear a newer toast; focus stays on a cell toggled from the keyboard; `app.js` reuses `watches.js`'s availability index.
   - Left as judgement calls: the status-to-label mapping lives in both the dot and the chip renderers. The banner clears on the next reload or save, not live, since nothing polls.
 - **Still to do (HITL):** push main so Pages publishes `site/`, then check the layout on a phone against the prototype (`prototype/watch-website`, v2).
+
+**2026-10-15:** Live. Main was pushed as a7848e4; `test` and `pages` passed. The owner checked the site on a phone and a laptop against the prototype, and both look right.
