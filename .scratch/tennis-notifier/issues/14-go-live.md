@@ -9,9 +9,9 @@
 **Type:** HITL
 
 - [x] GitHub Pages serves the site and BotFather `/setdomain` is set to its domain
-- [ ] A fine-grained PAT (this repo, Actions write only, maximum expiry) is stored in cron-job.org
-- [ ] cron-job.org dispatches `scan` every 5 min 07:00–23:00 and every 15 min 23:00–07:00, and `release` at 23:45 and 23:50, all Europe/London
-- [ ] The `observe` workflow is disabled and removed, and `data/` commits stop
+- [x] A fine-grained PAT (this repo, Actions write only, maximum expiry) is stored in cron-job.org
+- [x] cron-job.org dispatches `scan` every 5 min 07:00–23:00 and every 15 min 23:00–07:00, and `release` at 23:45 and 23:50, all Europe/London
+- [x] The `observe` workflow is disabled and removed, and `data/` commits stop
 - [ ] Smoke test passes: a manual `scan` stores slots and turns the `scan` check green; owner login, an invite redeemed from a second Telegram account, and a saved watch delivers the new-watch DM
 - [ ] The first midnight release is watched live and the `release` check goes green
 - [x] The runbook's PAT-rotation step is in place
@@ -35,3 +35,10 @@
   6. What to watch for at tonight's release.
 - **PAT rotation:** `scripts/go_live.sh rotate` runs only the preflight, PAT and cron-job.org stages, then points at the old token to delete. The spec's runbook steps 6 and 8 now name the scripts.
 - **From the review:** fixed a wizard exit when a run's log had no court lines, the release text (the 23:50 run queues behind the 23:45 one and exits after midnight), re-recording the old expiry on `rotate`, and the spec's Secrets table and Testing Decisions now list the API key and `cron_jobs.py`. Left: the schedule is written both in `job_specs` and in the wizard's notes; the repo slug is hard-coded in `cron_jobs.py`.
+
+**2026-10-16:** The owner ran `scripts/go_live.sh`.
+- **Token:** the fine-grained token expires 2027-10-15.
+- **Scan smoke test:** a dispatch with the token ([run 38820527559](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38820527559)) had 3 complete courts and logged `ping: 200`. The scan check in Healthchecks is named `tennis-notifier`; its URL matches `HEALTHCHECKS_SCAN_URL`.
+- **cron-job.org jobs:** 8655384 scan (day), 8655385 scan (night) and 8655386 release, all enabled in Europe/London. The first scheduled scan at 00:15 ([run 38822489997](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38822489997)) had 3 complete courts and logged `ping: 200`.
+- **Release:** the jobs were created after 23:50, so the night of 15–16 Oct had no release run, and the `release` check alarms for it. The first live release is the night of 16–17 Oct.
+- **Still open:** confirm the members smoke test (stage 5), and watch that release.
