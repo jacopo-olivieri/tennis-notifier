@@ -133,6 +133,10 @@
   .x:hover { background:var(--cell); color:var(--warn); }
   .x:disabled { opacity:.4; cursor:default; }
   .empty { font-size:13.5px; color:var(--muted); margin:6px 0 0; }
+  .newlink { display:flex; gap:8px; margin-top:12px; }
+  .newlink input { flex:1; min-width:0; font:inherit; font-size:13px; color:var(--fg); background:var(--cell); border:1px solid var(--line); border-radius:10px; padding:7px 10px; }
+  .rows .btn.ghost { padding:4px 8px; font-size:13px; }
+  .rows .btn.ghost:hover { color:var(--warn); }
 
   .savebar { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); width:min(560px, calc(100% - 32px)); background:var(--fg); color:var(--bg); border-radius:14px; padding:10px 10px 10px 16px; display:flex; align-items:center; gap:10px; box-shadow:0 8px 30px #0003; z-index:15; animation:up .18s ease-out; }
   .savebar .t { flex:1; font-size:13.5px; line-height:1.35; }

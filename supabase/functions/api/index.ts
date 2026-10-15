@@ -17,7 +17,7 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
 };
 
 function json(body: unknown, status = 200): Response {
@@ -26,12 +26,13 @@ function json(body: unknown, status = 200): Response {
 
 async function rpc(fn: string, args: Record<string, unknown>): Promise<unknown> {
   const { data, error } = await db.rpc(fn, args);
-  if (error) throw new Error(`${fn}: ${error.message}`);
+  // The SQLSTATE goes with the error, so a caller can tell a refusal from a failure.
+  if (error) throw Object.assign(new Error(`${fn}: ${error.message}`), { code: error.code });
   return data;
 }
 
 // POST /login {user: <widget payload>, invite?: <raw token>}
-// → {session, state} | {error: "not_member"} | 401 {error: "bad_login"}
+// → {session, state} | 403 {error: "not_member" | "invite_invalid"} | 401 {error: "bad_login"}
 async function login(req: Request): Promise<Response> {
   const body = await req.json().catch(() => null);
   const user = body?.user && typeof body.user === "object"
@@ -93,6 +94,36 @@ async function saveWatches(req: Request): Promise<Response> {
   return json({ alert, state: await rpc("member_state", { member_id: memberId }) });
 }
 
+// The owner's endpoints: the SQL functions refuse anyone else with 42501, which is a 403.
+// GET /members → {members, invites}; POST /invites → {id, token, expires_at};
+// DELETE /members/:id and DELETE /invites/:id → {}.
+async function asOwner(req: Request, act: (ownerId: number) => Promise<unknown>): Promise<Response> {
+  const memberId = await signedIn(req);
+  if (memberId === null || !await rpc("member_state", { member_id: memberId })) {
+    return json({ error: "signed_out" }, 401);
+  }
+  try {
+    return json(await act(memberId) ?? {});
+  } catch (e) {
+    if ((e as { code?: string }).code === "42501") return json({ error: "owner_only" }, 403);
+    throw e;
+  }
+}
+
+function ownerRoute(req: Request, route: string): Promise<Response> | null {
+  if (route === "GET /members") {
+    return asOwner(req, async (ownerId) => ({
+      members: await rpc("list_members", { owner_id: ownerId }),
+      invites: await rpc("list_invites", { owner_id: ownerId }),
+    }));
+  }
+  if (route === "POST /invites") return asOwner(req, (ownerId) => rpc("create_invite", { owner_id: ownerId }));
+  const [, resource, id] = route.match(/^DELETE \/(members|invites)\/(\d+)$/) ?? [];
+  if (resource === "members") return asOwner(req, (ownerId) => rpc("remove_member", { owner_id: ownerId, member_id: Number(id) }));
+  if (resource === "invites") return asOwner(req, (ownerId) => rpc("revoke_invite", { owner_id: ownerId, invite_id: Number(id) }));
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   // Supabase serves this at /functions/v1/api/<route>, and passes /api/<route> through.
@@ -101,6 +132,8 @@ Deno.serve(async (req) => {
     if (route === "POST /login") return await login(req);
     if (route === "GET /state") return await state(req);
     if (route === "POST /watches") return await saveWatches(req);
+    const owned = ownerRoute(req, route);
+    if (owned) return await owned;
     return json({ error: "not_found" }, 404);
   } catch (e) {
     console.error(e);

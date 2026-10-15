@@ -1,12 +1,14 @@
 // Court Watch: signing in with Telegram, then the member's watched hours: a week grid for
-// weekly ones and a calendar for single dates. The session token lives in localStorage for
-// its 30 days; everything else comes from the Edge Function. What the grid, calendar and
-// panel show is worked out in watches.js.
+// weekly ones and a calendar for single dates. The owner also gets a Members tab for invite
+// links and the member list. The session token lives in localStorage for its 30 days;
+// everything else comes from the Edge Function. What the grid, calendar and panel show is
+// worked out in watches.js; invite links in invites.js.
 
 import {
   WEEKDAYS, byDateHour, calendar, changes, dayHours, dayLabel, gridHours, hh, keyOf, londonNow, opensOn, upcoming,
   watchLines, weekCell,
 } from "./watches.js";
+import { inviteLink, inviteToken, memberLine, withoutInvite } from "./invites.js";
 
 const SESSION_KEY = "court-watch-session";
 const UNREACHABLE = "Couldn't reach the server. Try again in a minute.";
@@ -17,6 +19,9 @@ const S = {
   saved: new Set(), draft: new Set(),
   focus: null, // the grid cell whose detail shows: {weekday, hour}
   tab: "weekly", date: null, // the Single dates tab's chosen day
+  invite: inviteToken(location.href), // the raw token from an invite link, kept until login
+  team: null, // the owner's Members tab: {members, invites} from GET /members
+  newInvite: null, // the invite just made, {id, link}; its token can't be fetched again
 };
 
 const BALL = `<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="14" fill="var(--acc)"/><path d="M5 6.5c5 3 6.5 12 0 17M25 6.5c-5 3-6.5 12 0 17" fill="none" stroke="var(--acc-fg)" stroke-width="1.6" stroke-linecap="round"/></svg>`;
@@ -45,7 +50,10 @@ async function load() {
   if (!session.get()) return show("signedout");
   try {
     const res = await api("GET", "/state");
-    if (res.status === 200) return showMember(res.body);
+    if (res.status === 200) {
+      dropInvite(); // already a member: an invite link has nothing to do
+      return showMember(res.body);
+    }
     if (res.status === 401) session.set(null);
     show("signedout", res.status === 401 ? {} : { error: UNREACHABLE });
   } catch {
@@ -60,12 +68,17 @@ function logIn() {
     if (!user) return;
     show("signedout", { busy: true });
     try {
-      const res = await api("POST", "/login", { user });
+      const res = await api("POST", "/login", { user, invite: S.invite });
       if (res.status === 200) {
         session.set(res.body.session);
+        dropInvite();
         return showMember(res.body.state);
       }
       if (res.body.error === "not_member") return show("notinvited", { stranger: user });
+      if (res.body.error === "invite_invalid") {
+        dropInvite();
+        return show("badinvite", { stranger: user });
+      }
       show("signedout", { error: "That login didn't go through. Try again." });
     } catch {
       show("signedout", { error: UNREACHABLE });
@@ -116,9 +129,79 @@ async function saveWatches() {
   }
 }
 
+// The token is single use either way, so it comes off the address once login has used it.
+function dropInvite() {
+  S.invite = null;
+  history.replaceState(null, "", withoutInvite(location.href));
+}
+
 function logOut() {
   session.set(null);
-  show("signedout", { state: null, saved: new Set(), draft: new Set(), focus: null, tab: "weekly", date: null, note: "" });
+  show("signedout", {
+    state: null, saved: new Set(), draft: new Set(), focus: null, tab: "weekly", date: null, note: "", team: null, newInvite: null,
+  });
+}
+
+// The owner's calls: the reply, or null after showing what went wrong. A 401 means the
+// session ended.
+async function ownerCall(method, path, failed) {
+  try {
+    const res = await api(method, path);
+    if (res.status === 401) { logOut(); return null; }
+    if (res.status !== 200) { show("member", { error: failed }); return null; }
+    return res;
+  } catch {
+    show("member", { error: UNREACHABLE });
+    return null;
+  }
+}
+
+// Leaves S.busy alone, so opening the tab mid-save doesn't re-enable Save.
+async function loadTeam() {
+  const res = await ownerCall("GET", "/members", "Couldn't load the members. Try again.");
+  if (res) { S.team = res.body; render(); }
+}
+
+// One change to the members or invites, then the lists again; the reply, or null if it failed.
+async function ownerAction(method, path, failed) {
+  if (S.busy) return null;
+  S.busy = true;
+  render();
+  const res = await ownerCall(method, path, failed);
+  if (res) {
+    await loadTeam();
+    S.busy = false;
+    render();
+  }
+  return res;
+}
+
+async function createInvite() {
+  const res = await ownerAction("POST", "/invites", "Couldn't make an invite link. Try again.");
+  if (res) { S.newInvite = { id: res.body.id, link: inviteLink(location.href, res.body.token) }; render(); }
+}
+
+async function revokeInvite(id) {
+  if (await ownerAction("DELETE", `/invites/${id}`, "Couldn't revoke that link. Try again.") && S.newInvite?.id === id) {
+    S.newInvite = null;
+    render();
+  }
+}
+
+function removeMember(id) {
+  const m = S.team.members.find(m => m.id === id);
+  if (S.busy || !confirm(`Remove ${m.first_name}? Their watches and alert history go too, and they'll need a new invite to come back.`)) return;
+  return ownerAction("DELETE", `/members/${id}`, "Couldn't remove them. Try again.");
+}
+
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(S.newInvite.link);
+    show("member", { note: "Link copied." });
+  } catch {
+    // No clipboard access (e.g. an insecure origin): select it for a manual copy.
+    document.getElementById("new-link")?.select();
+  }
 }
 
 function show(screen, extra = {}) {
@@ -130,7 +213,10 @@ function show(screen, extra = {}) {
 
 function gate() {
   const [title, text, button, fine] = {
-    signedout: [`Court Watch`, `A Telegram message whenever a Lincoln's Inn Fields court you want frees up.`, true, `Invite-only. Logging in lets the bot message you.`],
+    signedout: S.invite
+      ? [`Jacopo invited you`, `Join Court Watch: a Telegram message whenever a Lincoln's Inn Fields court you want frees up.`, true, `Logging in lets the bot message you.`]
+      : [`Court Watch`, `A Telegram message whenever a Lincoln's Inn Fields court you want frees up.`, true, `Invite-only. Logging in lets the bot message you.`],
+    badinvite: [`That invite link doesn't work`, `It has been used, has expired or was revoked. Ask Jacopo for a new one.`, false, ``],
     notinvited: [`This one's invite-only`, `You're logged in as ${esc(S.stranger && handle(S.stranger))}, but you're not in the group. Ask Jacopo for an invite link.`, false, ``],
   }[S.screen];
   return `<div class="wrap gate"><div class="card">${BALL}<h1>${title}</h1><p>${text}</p>
@@ -184,7 +270,31 @@ function detailCard(inline) {
 function tabs() {
   const { weekly, single } = watchLines(S.draft, S.state.availability);
   const tab = (key, label, n) => `<button role="tab" class="${S.tab === key ? "on" : ""}" data-tab="${key}" aria-selected="${S.tab === key}">${label}${n ? `<span class="count">${n}</span>` : ""}</button>`;
-  return `<div class="tabs" role="tablist">${tab("weekly", "Weekly", weekly.length)}${tab("dates", "Single dates", single.length)}</div>`;
+  return `<div class="tabs" role="tablist">${tab("weekly", "Weekly", weekly.length)}${tab("dates", "Single dates", single.length)}${
+    S.state.member.is_owner ? tab("members", "Members", S.team?.members.length) : ""}</div>`;
+}
+
+function membersCard() {
+  if (!S.team) return `<div class="card"><h2>Members</h2><p class="sub" style="margin:0">Loading…</p></div>`;
+  const row = m => {
+    const { name, detail } = memberLine(m);
+    return `<div><span>${esc(name)} <span class="muted">${esc(detail)}</span></span>${m.is_owner ? `<span class="chip">Owner</span>`
+      : `<button class="btn ghost" data-act="remove-member" data-id="${m.id}" ${S.busy ? "disabled" : ""}>Remove</button>`}</div>`;
+  };
+  return `<div class="card"><h2>Members</h2><p class="sub">Removing someone deletes their watches and alert history.</p>
+    <div class="rows">${S.team.members.map(row).join("")}</div></div>`;
+}
+
+function invitesCard() {
+  const made = S.newInvite ? `<div class="newlink"><input id="new-link" readonly value="${esc(S.newInvite.link)}" aria-label="New invite link">
+    <button class="btn primary" data-act="copy-invite">Copy</button></div>
+    <p class="small muted" style="margin:8px 0 0">Copy it now: the link can't be shown again. It works once, for 7 days.</p>` : "";
+  const invites = S.team?.invites ?? [];
+  const row = i => `<div><span>Made ${dayLabel(i.created_at.slice(0, 10))} <span class="muted">· expires ${dayLabel(i.expires_at.slice(0, 10))}</span></span>
+    <button class="btn ghost" data-act="revoke" data-id="${i.id}" ${S.busy ? "disabled" : ""}>Revoke</button></div>`;
+  return `<div class="card"><h2>Invite links</h2><p class="sub">Each link lets one friend in.</p>
+    <button class="btn" data-act="create-invite" ${S.busy || !S.team ? "disabled" : ""}>Create invite link</button>${made}
+    ${invites.length ? `<div class="sec">Not used yet</div><div class="rows">${invites.map(row).join("")}</div>` : ""}</div>`;
 }
 
 function datesCard() {
@@ -257,7 +367,9 @@ function member() {
     ${tabs()}
     ${S.tab === "weekly"
       ? `<div class="layout"><div>${weeklyCard()}</div><div class="side"><div id="detail-wide">${detailCard(false)}</div>${watchesCard()}</div></div>`
-      : `<div class="layout"><div>${datesCard()}</div><div class="side">${dayCard()}${watchesCard()}</div></div>`}
+      : S.tab === "dates"
+      ? `<div class="layout"><div>${datesCard()}</div><div class="side">${dayCard()}${watchesCard()}</div></div>`
+      : `<div class="layout"><div>${membersCard()}</div><div class="side">${invitesCard()}</div></div>`}
     ${footer()}</div>${bottomBar()}`;
 }
 
@@ -318,7 +430,12 @@ document.addEventListener("click", e => {
     return document.querySelector(`.cell[data-weekday="${c.weekday}"][data-hour="${c.hour}"]`)?.focus();
   }
   const tab = e.target.closest("[data-tab]");
-  if (tab) { S.tab = tab.dataset.tab; S.menu = false; return render(); }
+  if (tab) {
+    // Leaving the tab drops the new link: it was there to be copied once.
+    Object.assign(S, { tab: tab.dataset.tab, menu: false, newInvite: null });
+    render();
+    return S.tab === "members" ? loadTeam() : undefined;
+  }
   const day = e.target.closest(".day");
   if (day) { S.date = day.dataset.date; return render(); }
   const hour = e.target.closest(".hour[data-hour]");
@@ -341,6 +458,10 @@ document.addEventListener("click", e => {
   }
   if (act === "discard") { Object.assign(S, { draft: new Set(S.saved), note: "", error: "" }); return render(); }
   if (act === "save") return saveWatches();
+  if (act === "copy-invite") return copyLink();
+  if (act === "create-invite") return createInvite();
+  if (act === "revoke") return revokeInvite(Number(target.dataset.id));
+  if (act === "remove-member") return removeMember(Number(target.dataset.id));
   if (S.menu && !e.target.closest(".menu-pop")) { S.menu = false; render(); }
 });
 

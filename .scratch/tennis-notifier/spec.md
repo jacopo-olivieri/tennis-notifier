@@ -143,7 +143,7 @@ The owner learns about outages through an external dead-man's switch, not from t
 All dates and hours are London-local (`date` + `hour smallint`).
 
 - `member(id, telegram_id unique, first_name, username, is_owner, joined_at, unreachable_since null)`: name and username are refreshed at every login. The owner row is seeded by hand. Removal is a hard delete that cascades to the member's watches and alerts.
-- `invite(token_hash, created_at, expires_at, used_by, used_at, revoked_at)`: only the hash of the token is stored. Single use, with a 7-day expiry.
+- `invite(id, token_hash, created_at, expires_at, used_by, used_at, revoked_at)`: only the hash of the token is stored. Single use, with a 7-day expiry.
 - `watch(member_id, weekday null, date null, hour)`: exactly one of `weekday` and `date` is set, enforced by a check constraint and unique per member. Each chosen hour is one Watch; merged lines are display only.
 - `slot(court, date, hour, status, status_since, last_seen_at)`: the snapshot, holding every scanned day including days not yet open. A future slot missing from a complete scan is kept, not deleted, so booked → missing → free still counts as a Cancellation.
 - `slot_change(court, date, hour, from, to, at)`
@@ -178,9 +178,9 @@ Each producer returns ready-to-send messages `(chat_id, text, alert_ids[])`. The
 | `mark_failed(alert_ids, http_status, error)` | all callers | Increments `failures`. After 3 failures the alert is abandoned. If it's abandoned with a 403, sets `unreachable_since`. The poller classifies nothing. |
 | `claim_release(day, run_id)` | `release` job | Returns whether this run holds the claim. |
 | `release_claim_held()` | `scan` job | True while a release claim for tonight exists, has no `done_at` and is before 00:15. The scan exits at once when it's true. |
-| `login(telegram_user, invite_token null)` | Edge Function | Refreshes an existing member. Otherwise redeems a valid invite: it must be unused, unexpired and unrevoked, then the invite is marked used and a member is created. Otherwise returns "not a member". |
+| `login(telegram_user, invite_token null)` | Edge Function | Refreshes an existing member. Otherwise redeems a valid invite: it must be unused, unexpired and unrevoked, then the invite is marked used and a member is created. Any other invite token returns "invite invalid"; no token returns "not a member". |
 | `member_state(member_id)` | Edge Function | What `GET /state` returns for a signed-in member, or null once they've been removed. |
-| `create_invite(owner)`, `revoke_invite(owner, token_hash)`, `list_members(owner)`, `remove_member(owner, member)` | Edge Function | Owner-only; refused for anyone else. |
+| `create_invite(owner)`, `revoke_invite(owner, invite_id)`, `list_invites(owner)`, `list_members(owner)`, `remove_member(owner, member)` | Edge Function | Owner-only; anyone else gets SQLSTATE 42501, which the Edge Function returns as 403. `create_invite` returns the raw token once. `list_invites` lists the links that are still usable. `list_members` counts as hours watched the weekly watches and the single-date ones not yet started. The owner can't be removed. |
 | `housekeep()` | `pg_cron` daily at ~03:00 London | Deletes past single-date watches, past slots, expired invites, and alert, slot_change and scan_log rows older than 30 days. A plain function, so it's testable without pg_cron. |
 
 **Rules encoded in these functions:**
@@ -245,7 +245,7 @@ A run fails its GitHub job only on unexpected errors. The health signal is Healt
   - the last check time
   - `window_end`
 - `POST /watches` with `{added, removed}`. Sends the new-watch message (if any) to Telegram, reports the outcome, and returns the new state.
-- Owner only: `GET /members`, `DELETE /members/:id`, `POST /invites`, `DELETE /invites/:id`.
+- Owner only: `GET /members` (the members and outstanding invites), `DELETE /members/:id`, `POST /invites`, `DELETE /invites/:id`.
 
 The invite landing URL carries the raw token in its query string. The site keeps the token through the login and sends it with `POST /login`.
 
