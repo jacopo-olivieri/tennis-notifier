@@ -4,7 +4,7 @@
 
 **Blocked by:** 08
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `create_invite` returns a raw token once and stores only its hash, with a 7-day expiry; `revoke_invite` revokes it
 - [x] `login` with a valid invite token (unused, unexpired, unrevoked) creates the member and marks the invite used; used, expired or revoked tokens return "invite invalid"
@@ -52,3 +52,5 @@
     - Removing the owner (which the UI never offers) reports `owner_only`.
     - The `20261015000000_login.sql` comment still says invites aren't built. That migration is history, and the new one replaces the function.
     - `housekeep` deleting expired invites is ticket 13.
+
+**2026-10-15:** Live. The owner ran the migration in the SQL editor. `api` was redeployed, and an unsigned `GET /members` gets 401 `signed_out`, with CORS allowing DELETE. Main was pushed as 7d6f925; `test` and `pages` passed. The owner chose not to check redeeming an invite on the live site; that's covered by the local smoke run above.
