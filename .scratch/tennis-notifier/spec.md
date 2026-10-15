@@ -267,6 +267,7 @@ Both checks notify only the owner, through Healthchecks' own Telegram integratio
 | GitHub secrets | Bot token, Supabase URL, Supabase service key, the two Healthchecks ping URLs |
 | Edge Function | Bot token, session secret (the service role is built in) |
 | cron-job.org | The dispatch PAT |
+| Local `.env` | The cron-job.org API key, which can read the PAT in the jobs (used by `scripts/go_live.sh rotate`) |
 
 Nothing about members is stored in the repo.
 
@@ -283,12 +284,12 @@ Nothing about members is stored in the repo.
 3. **GitHub:** add the repo secrets. Enable Pages for the site. Disable and remove the `observe` workflow, and stop `data/` commits.
 4. **Healthchecks.io:** create the `scan` and `release` checks with the schedules and grace periods above. Connect the Telegram and email integrations. Put the ping URLs in GitHub secrets.
 5. **Dispatch PAT:** a fine-grained token scoped to this repo with Actions write only, at the maximum expiry.
-6. **cron-job.org:** create jobs dispatching `scan` every 5 min 07:00–23:00 and every 15 min 23:00–07:00, and `release` at 23:45 and 23:50, all in the Europe/London timezone.
+6. **cron-job.org:** create jobs dispatching `scan` every 5 min 07:00–23:00 and every 15 min 23:00–07:00, and `release` at 23:45 and 23:50, all in the Europe/London timezone. `scripts/cron_jobs.py` creates them through the cron-job.org API (key in `.env` as `CRONJOB_API_KEY`); `scripts/go_live.sh` runs steps 5–7.
 7. **Smoke test:**
    - Dispatch `scan` by hand and confirm slots appear and the `scan` check goes green.
    - Log in as the owner, create an invite, redeem it from a second Telegram account, and save a watch on a free hour. The new-watch DM should arrive.
    - Watch the first midnight release live.
-8. **Rotating the PAT:** before it expires (GitHub sends an expiry email), create a new one and replace it in cron-job.org. The `scan` check catches a missed rotation.
+8. **Rotating the PAT:** before it expires (GitHub sends an expiry email), run `scripts/go_live.sh rotate`: it takes a new token, swaps it into the cron-job.org jobs and records its expiry in `.env` as `DISPATCH_PAT_EXPIRES`. The `scan` check catches a missed rotation.
 
 ## Testing Decisions
 
@@ -324,6 +325,7 @@ Nothing about members is stored in the repo.
    - `verifyTelegramLogin` with `deno test`: a known-good vector, a tampered field, a stale `auth_date`.
    - Session token: sign then verify, a tampered token, an expired token.
    - The site's `watches.js` with `deno test` (added in ticket 10): the five weeks behind a grid cell, dashed cells, the grid's hours, merged watch lines with their free counts, and the save batch. Ticket 11 added the Single dates calendar, a day's hours, the booking-open date and hiding past single-date watches.
+   - `scripts/cron_jobs.py` (added in ticket 14): the cron-job.org jobs' schedules, their dispatch request, and updating jobs that already exist rather than duplicating them.
 
 **Not automated, by choice:**
 - The orchestration glue and Edge Function HTTP wiring: a manual smoke test.
