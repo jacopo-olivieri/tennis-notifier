@@ -4,14 +4,14 @@
 
 **Blocked by:** 03, 08
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The `availability(date, hour, free_courts, status)` view gives free, booked, no session or not open; SQL tests cover each status and the `window_end()` boundary
 - [x] `save_watches(member, added, removed)` applies the batch (one row per chosen hour, no duplicates, single dates may be after `window_end()`) and returns one new-watch message for slots free now on the added hours only, or nothing
 - [x] The message has the headline, a second line listing the added hours joined by ` · ` (`Weekly Tue 11:00`, `Fri 23 Oct 15:00`), then the usual linked lines; it ignores the 30-minute rule but its slots then count toward it
 - [x] `POST /watches` sends the message, reports the outcome and returns the new state; `GET /state` adds watches, 7 weeks of availability, last check time and `window_end`
 - [x] A basic page lists the member's watches and lets them add or remove hours and save
-- [ ] Live demo: saving a watch on a free hour delivers the DM
+- [x] Live demo: saving a watch on a free hour delivers the DM
 
 ## Comments
 
@@ -37,3 +37,5 @@
   2. Deploy the function: `npx supabase functions deploy api --project-ref <ref> --no-verify-jwt`.
   3. Push main so Pages publishes `site/`.
   4. On the site, save a watch on an hour that's free now and check that the DM arrives.
+
+**2026-10-15:** Live. The owner applied the migration in the SQL editor. `api` was redeployed with `POST /watches`, and an unsigned request gets 401 `signed_out`. Main was pushed as f743ef8; `test` and `pages` passed. On the live site the owner saved a single-date watch, Wed 28 Oct 10:00, on an hour with a free court. The page said "Saved. What's free now on those hours is in your Telegram." and the new-watch DM arrived.
