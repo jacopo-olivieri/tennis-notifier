@@ -213,7 +213,7 @@ GH_API="https://api.github.com/repos/$REPO"
 # dispatch WORKFLOW: POST a workflow_dispatch of main with the PAT, the way
 # cron-job.org will. Prints the HTTP status (204 means it worked).
 dispatch() {
-  curl -s -o /dev/null -w '%{http_code}' -X POST "$GH_API/actions/workflows/$1/dispatches" \
+  curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$GH_API/actions/workflows/$1/dispatches" \
     -H "Authorization: Bearer $DISPATCH_PAT" -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' -d '{"ref":"main"}'
 }
@@ -252,7 +252,7 @@ if [[ "$MODE" == all ]]; then
     warn "The observe workflow is still on GitHub. Push the commit that removes it."; exit 1
   fi
   note "The old observe logger is gone, so data/ commits have stopped."
-  if [[ "$(curl -s -o /dev/null -w '%{http_code}' "$SITE")" == 200 ]]; then
+  if [[ "$(curl -s -m 20 --retry 3 --retry-all-errors -o /dev/null -w '%{http_code}' "$SITE" || true)" == 200 ]]; then
     note "The site is up at $SITE (BotFather's /setdomain was done in ticket 08)."
   else
     warn "$SITE didn't answer 200. Check the pages workflow, then re-run."; exit 1
@@ -275,8 +275,8 @@ note "The token is kept only in cron-job.org (the API key saved later can read i
 while :; do
   DISPATCH_PAT=""
   ask_secret DISPATCH_PAT "Paste the token:"
-  status=$(curl -s -o /dev/null -w '%{http_code}' "$GH_API/actions/workflows" \
-    -H "Authorization: Bearer $DISPATCH_PAT" -H 'Accept: application/vnd.github+json')
+  status=$(curl -s -m 20 --retry 2 -o /dev/null -w '%{http_code}' "$GH_API/actions/workflows" \
+    -H "Authorization: Bearer $DISPATCH_PAT" -H 'Accept: application/vnd.github+json' || true)
   [[ "$status" == 200 ]] && break
   warn "GitHub answered $status for that token. Check its repository and permission, and paste it again."
 done
@@ -301,7 +301,7 @@ if [[ "$MODE" == all ]]; then
   stage "Smoke test: dispatch scan with the token"
   say "This sends the exact request cron-job.org will send."
   started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  status=$(dispatch scan.yml)
+  status=$(dispatch scan.yml || true)
   if [[ "$status" != 204 ]]; then
     warn "GitHub answered $status, not 204. The token needs Actions: Read and write. Re-run this wizard."; exit 1
   fi
