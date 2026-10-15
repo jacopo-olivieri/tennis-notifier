@@ -76,3 +76,11 @@ def test_other_roles_cannot_read_availability(db):
 
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         db.one("select count(*) from availability")
+
+
+def test_other_roles_cannot_housekeep(db):
+    db.conn.execute("create role stranger")
+    db.conn.execute("set local role stranger")
+
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        db.one("select housekeep()")

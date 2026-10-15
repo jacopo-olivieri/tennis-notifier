@@ -181,7 +181,7 @@ Each producer returns ready-to-send messages `(chat_id, text, alert_ids[])`. The
 | `login(telegram_user, invite_token null)` | Edge Function | Refreshes an existing member. Otherwise redeems a valid invite: it must be unused, unexpired and unrevoked, then the invite is marked used and a member is created. Any other invite token returns "invite invalid"; no token returns "not a member". |
 | `member_state(member_id)` | Edge Function | What `GET /state` returns for a signed-in member, or null once they've been removed. |
 | `create_invite(owner)`, `revoke_invite(owner, invite_id)`, `list_invites(owner)`, `list_members(owner)`, `remove_member(owner, member)` | Edge Function | Owner-only; anyone else gets SQLSTATE 42501, which the Edge Function returns as 403. `create_invite` returns the raw token once. `list_invites` lists the links that are still usable. `list_members` counts as hours watched the weekly watches and the single-date ones not yet started. The owner can't be removed. |
-| `housekeep()` | `pg_cron` daily at ~03:00 London | Deletes past single-date watches, past slots, expired invites, and alert, slot_change and scan_log rows older than 30 days. A plain function, so it's testable without pg_cron. |
+| `housekeep()` | `pg_cron` daily at 02:00 UTC | Deletes single-date watches and slots whose hour has started, invites past their expiry (used, revoked or not), and alert, slot_change and scan_log rows older than 30 days. A plain function, so it's testable without pg_cron. |
 
 **Rules encoded in these functions:**
 - **Complete court:** all 6 weeks parsed, and at least 50% of the slots that court had last time. Otherwise the court is logged as failed, its stored slots are left untouched, and its diff is skipped.
@@ -277,7 +277,8 @@ Nothing about members is stored in the repo.
    - Create the project.
    - Apply the SQL migration.
    - Seed the owner's member row with their Telegram id and `is_owner`.
-   - Enable `pg_cron` and schedule `housekeep()` daily at 03:00 London time. pg_cron runs in UTC, so schedule it at 02:00 UTC, which gives 03:00 in winter and 03:00–04:00 in summer.
+   - Enable `pg_cron` and schedule `housekeep()` daily. pg_cron runs in UTC, so schedule it at 02:00 UTC, which is 03:00 London in summer and 02:00 in winter. Either is a quiet hour.
+     In the SQL editor, after enabling the extension under Database → Extensions: `select cron.schedule('housekeep', '0 2 * * *', 'select housekeep()');`. Runs show in `cron.job_run_details`.
    - Deploy the Edge Function with its secrets.
 3. **GitHub:** add the repo secrets. Enable Pages for the site. Disable and remove the `observe` workflow, and stop `data/` commits.
 4. **Healthchecks.io:** create the `scan` and `release` checks with the schedules and grace periods above. Connect the Telegram and email integrations. Put the ping URLs in GitHub secrets.
