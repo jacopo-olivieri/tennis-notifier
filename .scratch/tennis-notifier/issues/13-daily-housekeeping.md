@@ -4,11 +4,11 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A plain `housekeep()` function deletes past single-date watches, past slots, expired invites, and `alert`, `slot_change` and `scan_log` rows older than 30 days
 - [x] SQL tests with a pinned clock show it deletes exactly that and nothing still current
-- [ ] HITL: `pg_cron` schedules `housekeep()` at 02:00 UTC in the Supabase project (the job lives in the runbook, not the migration)
+- [x] HITL: `pg_cron` schedules `housekeep()` at 02:00 UTC in the Supabase project (the job lives in the runbook, not the migration)
 
 ## Comments
 
@@ -24,3 +24,5 @@
   - Weekly watches, members and `marker` rows are never touched. `marker` grows by two rows a night, which is too little to matter.
   - Only `service_role` can call it, like every other function. pg_cron runs it as `postgres`.
 - **Spec changes:** the runbook has the exact `cron.schedule` call. Its time note was backwards: 02:00 UTC is 03:00 London in summer and 02:00 in winter.
+
+**2026-10-15:** Live. The owner applied the migration in the SQL editor, enabled `pg_cron` and scheduled `housekeep` at `0 2 * * *` (job id 1). The first run's result shows in `cron.job_run_details` after 02:00 UTC.
