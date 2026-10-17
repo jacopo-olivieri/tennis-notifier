@@ -13,7 +13,7 @@
 - [x] cron-job.org dispatches `scan` every 5 min 07:00–23:00 and every 15 min 23:00–07:00, and `release` at 23:45 and 23:50, all Europe/London
 - [x] The `observe` workflow is disabled and removed, and `data/` commits stop
 - [ ] Smoke test passes: a manual `scan` stores slots and turns the `scan` check green; owner login, an invite redeemed from a second Telegram account, and a saved watch delivers the new-watch DM
-- [ ] The first midnight release is watched live and the `release` check goes green
+- [x] The first midnight release is watched live and the `release` check goes green
 - [x] The runbook's PAT-rotation step is in place
 
 ## Comments
@@ -42,3 +42,8 @@
 - **cron-job.org jobs:** 8655384 scan (day), 8655385 scan (night) and 8655386 release, all enabled in Europe/London. The first scheduled scan at 00:15 ([run 38822489997](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38822489997)) had 3 complete courts and logged `ping: 200`.
 - **Release:** the jobs were created after 23:50, so the night of 15–16 Oct had no release run, and the `release` check alarms for it. The first live release is the night of 16–17 Oct.
 - **Still open:** confirm the members smoke test (stage 5), and watch that release.
+
+**2026-10-17:** First live release, night of 16–17 Oct.
+- The 23:45 run ([38977627183](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38977627183)) claimed the release of 2026-11-20. Its probe saw the day open at 00:00:06, `record_release` returned 0 messages because nobody watches those hours, and it logged `ping: 200`.
+- The 23:50 run ([38978102606](https://github.com/jacopo-olivieri/tennis-notifier/actions/runs/38978102606)) queued, then logged "not claimed … exiting". Scheduled scans carried on through the morning.
+- Still open: confirm the members smoke test (stage 5).
